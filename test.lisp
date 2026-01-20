@@ -667,6 +667,12 @@
     (parse (not-followed-by (string-of "b")) s)
     (t:is char= #\a (read-char s))))
 
+(t:define-test digit
+  :depends-on (char-if)
+  (t:is = 7 (parse-string (digit) "7"))
+  (t:is = 15 (parse-string (digit 16) "f"))
+  (t:fail (parse-string (digit) "a") 'parser-error))
+
 (t:define-test chainl1
   :depends-on (or! let! ok digit)
   (let ((expr (chainl1 (natural)
