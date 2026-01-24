@@ -378,10 +378,12 @@ TRY! only works when the parser is given a seekable stream."
 (defun many-till (parser end)
   "Return a parser that applies `parser` zero or more times until `end` succeeds.
 Returns a list of the results from `parser`."
-  (or! (let! (_ (try! end)) (ok '()))
-       (let! ((x parser)
-              (xs (many-till parser end)))
-         (ok (cons x xs)))))
+  (labels ((many-till-p ()
+             (or! (let! ((_ (try! end))) (ok '())) ; If 'end' succeeds, return empty list
+                  (let! ((x parser)
+                         (xs (many-till-p))) ; If 'parser' succeeds, recurse
+                    (ok (cons x xs))))))
+    (many-till-p)))
 
 (defun reduce! (function parser &key initial-parser)
   "Return a parser that keeps running until failure, and reduces its results into one value.
@@ -413,8 +415,9 @@ If INITIAL-PARSER is supplied, the parser may succeed without calling FUNCTION b
             (constantly (ok nil)))))
 
 (defun optional (parser)
-  "Return a parser that tries the given parser, and returns its result on success, or NIL on an empty failure."
-  (or! parser (ok nil)))
+  "Return a parser that tries the given parser, and returns its result on success, or NIL on an empty failure.
+Uses TRY! to ensure backtracking on partial matches."
+  (or! (try! parser) (ok nil)))
 
 (defun lookahead (parser)
   "Return a parser that runs the given parser without consuming any input.
@@ -461,23 +464,26 @@ This parser never consumes input. Requires a seekable stream."
   "Parse one or more occurrences of `p`, separated by `op`.
 Returns a value obtained by a left-associative application of all functions
 returned by `op` to the values returned by `p`."
-  (let* ((rest (lambda (x)
-                 (or! (let! ((f op)
-                             (y p))
-                        (funcall rest (funcall f x y)))
-                      (ok x)))))
-    (let! ((x p)) (funcall rest x))))
+  (let! ((x p) ; parse initial value
+         (f-y-pairs (collect (let! ((f op) ; parse operator (returns a function)
+                                    (y p))  ; parse next operand (returns a value)
+                               (ok (list f y)))))) ; return a list (function value)
+    (ok (reduce (lambda (acc pair)
+                  (funcall (first pair) acc (second pair)))
+                f-y-pairs
+                :initial-value x))))
 
 (defun chainr1 (p op)
   "Parse one or more occurrences of `p`, separated by `op`.
 Returns a value obtained by a right-associative application of all functions
 returned by `op` to the values returned by `p`."
-  (let! ((x p)
-         (rest (or! (let! ((f op)
-                           (y (chainr1 p op)))
-                      (ok (funcall f x y)))
-                    (ok x))))
-    rest))
+  (labels ((chainr1-p-recursive ()
+             (let! ((x p)
+                    (f-y-parser (optional (let! ((f op)
+                                                  (y (chainr1-p-recursive)))
+                                            (ok (funcall f x y))))))
+               (ok (if f-y-parser f-y-parser x)))))
+    (chainr1-p-recursive)))
 
 
 ;; Toplevel parsers
