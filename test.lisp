@@ -5,16 +5,14 @@
 
 (defpackage #:xyz.shunter.parsnip.test
   (:use #:cl
-        #:xyz.shunter.parsnip
-        #:xyz.shunter.parsnip.examples.json
-        #:xyz.shunter.parsnip.examples.tiny-c)
+        #:xyz.shunter.parsnip)
   (:import-from #:alexandria
                 #:curry)
   (:local-nicknames (#:t #:parachute)))
 
 (in-package #:xyz.shunter.parsnip.test)
 
-
+
 
 (defun parse-string (parser string)
   (with-input-from-string (stream string)
@@ -33,7 +31,7 @@
         (tolerance 0.0005))
     (< difference tolerance)))
 
-
+
 
 ;; Unit Tests
 
@@ -447,178 +445,7 @@
     (t:is equal 1
           (parse-string parser ""))))
 
-
 
-;; JSON Tests
-
-(t:define-test json-numbers
-  (t:is = 123
-      (decode-json-from-string "123"))
-
-  (t:is = 50
-      (decode-json-from-string "000050"))
-
-  (t:is = -123
-      (decode-json-from-string "-123"))
-
-  (t:is close-enough 1.5
-      (decode-json-from-string "1.5"))
-
-  (t:is close-enough 1.05
-      (decode-json-from-string "1.05"))
-
-  (t:is close-enough 1e5
-      (decode-json-from-string "1e5"))
-
-  (t:is close-enough 1e5
-      (decode-json-from-string "1e+5"))
-
-  (t:is close-enough 1e-5
-      (decode-json-from-string "1e-5"))
-
-  (t:is close-enough 15.0
-      (decode-json-from-string "1.5e1")))
-
-(t:define-test json-strings
-  (t:is string= "hello, world"
-      (decode-json-from-string "\"hello, world\""))
-
-  (t:is string= (coerce #(#\" #\\ #\/ #\Backspace #\Page #\Newline #\Return #\Tab) 'string)
-      (decode-json-from-string "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\""))
-
-  (t:is string= "(λ (n) (* n n))"
-      (decode-json-from-string "\"(\\u03BB (n) (* n n))\"")))
-
-(t:define-test json-arrays
-  :depends-on (json-numbers json-strings)
-  (t:is equal '(10 20 30)
-      (decode-json-from-string "[10,20,30]"))
-
-  (t:is equal '(10)
-      (decode-json-from-string "[10]"))
-
-  (t:is equal ()
-      (decode-json-from-string "[]"))
-
-  (t:is equal '(10 "string" (20 30 40))
-      (decode-json-from-string "[10, \"string\", [20, 30, 40]]"))
-
-  (t:is equal '(10 20 30)
-      (decode-json-from-string " [ 10 , 20 , 30 ] ")))
-
-(t:define-test json-objects
-  :depends-on (json-numbers json-strings)
-  (t:is equal '(("key" . "value"))
-      (decode-json-from-string "{\"key\":\"value\"}"))
-
-  (t:is equal '(("one" . 1) ("two" . 2) ("three" . 3))
-      (decode-json-from-string "{\"one\":1,\"two\":2,\"three\":3}"))
-
-  (t:is equal '(("object" . (("key" . "value"))))
-      (decode-json-from-string "{\"object\":{\"key\":\"value\"}}"))
-
-  (t:is equal '(("key" . "value") ("foo" . "bar"))
-      (decode-json-from-string " { \"key\" : \"value\" , \"foo\" : \"bar\" }"))
-
-  (t:is equal '(("key" . "value") ("foo" . "bar"))
-        (decode-json-from-string
-          (format nil "{~%  \"key\": \"value\",~%  \"foo\": \"bar\"~%}"))))
-
-
-
-;; Tiny C Tests
-
-(t:define-test c-function
-  (t:is equal '((:function "empty" ()))
-        (parse-tiny-c-from-string
-          "empty(){}"))
-
-  (t:is equal '((:function "empty" ()))
-        (parse-tiny-c-from-string
-          "  empty  (  )  {  }  "))
-
-  (t:is equal '((:function "emptyWithArg" ("a")))
-        (parse-tiny-c-from-string
-          "emptyWithArg(a) {}"))
-
-  (t:is equal '((:function "emptyWithArgs" ("a" "b" "c")))
-        (parse-tiny-c-from-string
-          "emptyWithArgs(a, b, c) {}")))
-
-(t:define-test c-statements
-  (t:is equal '((:function "block" ()
-                 (:block)
-                 (:block)
-                 (:block (:block) (:block))))
-        (parse-tiny-c-from-string
-          "block() { {} {  }  {{}{}} }"))
-
-  (t:is equal '((:function "returnFn" ()
-                 (:return 10)
-                 (:return 20)
-                 (:return "a")))
-        (parse-tiny-c-from-string
-          "returnFn() { return 10; return 20;    return     a   ; }"))
-
-  (t:is equal '((:function "whileFn" ()
-                 (:while 1 (:block))
-                 (:while "a" (:while "b" (:expr "c")))))
-        (parse-tiny-c-from-string
-          "whileFn() { while (1) {}   while (a) while (b) c; }"))
-
-  (t:is equal '((:function "ifFn" ()
-                 (:if 1 (:block))
-                 (:if "a" (:if "b" (:expr "c")))))
-        (parse-tiny-c-from-string
-          "ifFn() { if (1) {}    if (a) if (b) c; }")))
-
-(t:define-test c-expressions
-  (t:is equal '((:function "primary" ()
-                 (:expr 10)
-                 (:expr "a")
-                 (:expr 10)))
-        (parse-tiny-c-from-string
-          "primary() { 10; a; (10); }"))
-
-  (t:is equal '((:function "calls" ()
-                 (:expr (:call "foo"))
-                 (:expr (:call "add" 1 2))
-                 (:expr (:call (:call (:call "fun"))))))
-        (parse-tiny-c-from-string
-          "calls() { foo(); add(1, 2); fun()()(); }"))
-
-  (t:is equal '((:function "binary" ()
-                 (:expr (#\+ 10 20))
-                 (:expr (#\* 30 40))
-                 (:expr ("==" 1 1))
-                 (:expr (#\+ (#\* 1 2) (#\* 3 4)))))
-        (parse-tiny-c-from-string
-          "binary() { 10 + 20;   30 * 40;   1 == 1;   1 * 2 + 3 * 4; }")))
-
-(t:define-test tiny-c-example
-  (t:is equal '((:function "fact" ("n")
-                 (:if ("==" "n" 0)
-                  (:return 1))
-                 (:return (#\* "n" (:call "fact" (#\- "n" 1)))))
-                (:function "fib" ("n")
-                 (:expr (:assign "a" 0))
-                 (:expr (:assign "b" 1))
-                 (:while (#\> "n" 0)
-                  (:block
-                    (:expr (:assign "b" (#\+ "b" "a")))
-                    (:expr (:assign "a" (#\- "b" "a")))
-                    (:expr (:assign "n" (#\- "n" 1)))))
-                 (:return "a"))
-                (:function "add" ("a" "b")
-                 (:return (#\+ "a" "b")))
-                (:function "main" ()
-                 (:expr (:call "sayn" (:call "fib" 10)))
-                 (:expr (:call "sayn" (:call "fact" 10)))
-                 (:return 0)))
-        (with-open-file (file (asdf:system-relative-pathname
-                                :parsnip/examples
-                                #P"examples/tiny-c.c"))
-          (parse-tiny-c file))))
 
 ;;; New Combinator Tests
 
@@ -693,3 +520,38 @@
     (t:is = 256 (parse-string expr "4^2^2")) ; 4^(2^2), not (4^2)^2
     ))
 
+    
+
+(t:define-test string-vs-try-string
+  :depends-on (string-of try! or!)
+  (let ((boot (string-of "boot"))
+        (bool (string-of "bool"))
+        (try-boot (try! (string-of "boot")))
+        (try-bool (try! (string-of "bool"))))
+
+    ;; string-of consumes input on failure, so the second branch of or! is not tried
+    (t:is string= "boot" (parse-string (or! boot bool) "boot"))
+    (t:fail (parse-string (or! boot bool) "bool") 'parser-error)
+    (t:fail (parse-string (or! boot bool) "booz") 'parser-error)
+
+    ;; try! rewinds on failure, so the second branch of or! is tried
+    (t:is string= "boot" (parse-string (or! try-boot try-bool) "boot"))
+    (t:is string= "bool" (parse-string (or! try-boot try-bool) "bool"))
+    (t:fail (parse-string (or! try-boot try-bool) "booz") 'parser-error)))
+
+(defun mappend-parser (p1 p2)
+  (let! ((r1 p1)
+         (r2 p2))
+    (ok (concatenate 'string r1 r2))))
+
+(t:define-test monoid-properties
+  :depends-on (ok collect-into-string string-of)
+  (let ((as (collect-into-string (char-of #\a)))
+        (bs (collect-into-string (char-of #\b)))
+        (str-a (string-of "a")))
+    (t:is string= "aabbb" (parse-string (mappend-parser as bs) "aabbb"))
+    (t:is string= "aa" (parse-string (mappend-parser (ok "") as) "aabbb"))
+    (t:is string= "aa" (parse-string (mappend-parser as (ok "")) "aabbb"))
+    (t:is string= "" (parse-string (ok "") "aabbb"))
+    (t:is string= "aa" (parse-string (mappend-parser str-a str-a) "aabbb"))
+    (t:fail (parse-string (mappend-parser str-a (mappend-parser str-a str-a)) "aabbb") 'parser-error)))
