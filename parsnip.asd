@@ -42,3 +42,39 @@
   :components ((:file "test"))
   :perform (asdf:test-op (op c)
              (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test)))
+
+(asdf:defsystem #:parsnip/test-json
+  :description "Test suite for the Parsnip JSON example"
+  :author "Brian O'Reilly <fade@deepsky.com>"
+  :license "BSD 3-Clause"
+  :version "0.0.7"
+
+  :depends-on (#:parsnip/examples
+               #:parachute)
+  :components ((:file "test-json"))
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test-json)))
+
+(asdf:defsystem #:parsnip/test-literals
+  :description "Test suite for the new literal parsers"
+  :author "Brian O'Reilly <fade@deepsky.com>"
+  :license "BSD 3-Clause"
+  :version "0.0.7"
+
+  :depends-on (#:parsnip
+               #:parachute)
+  :components ((:file "test-literals"))
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test-literals)))
+
+(asdf:defsystem #:parsnip/test-parsec
+  :description "Test suite for Parsec-compatible combinators"
+  :author "Brian O'Reilly <fade@deepsky.com>"
+  :license "BSD 3-Clause"
+  :version "0.0.7"
+
+  :depends-on (#:parsnip
+               #:parachute)
+  :components ((:file "test-parsec"))
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test-parsec)))
