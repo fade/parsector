@@ -162,11 +162,11 @@ Parse elements in any order. Useful for command-line flags, XML attributes, etc.
 | Test Suite              | Tests | Status      |
 |-------------------------+-------+-------------|
 | parsnip/test            |   146 | All passing |
+| parsnip/test-json       |    22 | All passing |
 | parsnip/test-literals   |    48 | All passing |
 | parsnip/test-parsec     |    48 | All passing |
-| *Total*                 | *242* | *Passing*   |
-
-Note: JSON example tests have pre-existing failures unrelated to new features.
+| parsnip/test-m3u        |    13 | All passing |
+| *Total*                 | *277* | *Passing*   |
 
 *** Running Tests
 

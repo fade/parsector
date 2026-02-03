@@ -29,7 +29,8 @@
                #:alexandria)
   :components ((:module :examples
                 :components ((:file "json")
-                             (:file "tiny-c"))))
+                             (:file "tiny-c")
+                             (:file "m3u"))))
   :in-order-to ((asdf:test-op (asdf:test-op :parsnip/test))))
 
 (asdf:defsystem #:parsnip/test
@@ -80,6 +81,18 @@
   :perform (asdf:test-op (op c)
              (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test-parsec)))
 
+(asdf:defsystem #:parsnip/test-m3u
+  :description "Test suite for the M3U playlist parser example"
+  :author "Brian O'Reilly <fade@deepsky.com>"
+  :license "BSD 3-Clause"
+  :version "0.0.7"
+
+  :depends-on (#:parsnip/examples
+               #:parachute)
+  :components ((:file "test-m3u"))
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :parachute :test :xyz.shunter.parsnip.test-m3u)))
+
 (asdf:defsystem #:parsnip/test-all
   :description "Run all Parsnip test suites"
   :author "Brian O'Reilly <fade@deepsky.com>"
@@ -89,10 +102,12 @@
   :depends-on (#:parsnip/test
                #:parsnip/test-json
                #:parsnip/test-literals
-               #:parsnip/test-parsec)
+               #:parsnip/test-parsec
+               #:parsnip/test-m3u)
   :perform (asdf:test-op (op c)
              (uiop:symbol-call :parachute :test
                                '(:xyz.shunter.parsnip.test
                                  :xyz.shunter.parsnip.test-json
                                  :xyz.shunter.parsnip.test-literals
-                                 :xyz.shunter.parsnip.test-parsec))))
+                                 :xyz.shunter.parsnip.test-parsec
+                                 :xyz.shunter.parsnip.test-m3u))))

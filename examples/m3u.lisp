@@ -30,52 +30,53 @@
 
 ;;; --- Basic & Utility Parsers ---
 
-(defparser whitespace ()
+(defun whitespace ()
+  "Parse zero or more spaces or tabs (not newlines)."
   (skip-many (char-in #(#\Space #\Tab))))
-
-(defparser end-of-line ()
-  (or! (string-of #.(string #\Newline))
-       (string-of #.(concatenate 'string (string #\Return) (string #\Newline)))))
 
 (defparser comment-line ()
   (prog2! (char-of #\;)
-          (collect-into-string (many-till (char-if (constantly t)) (lookahead (end-of-line))))
+          (let! ((chars (many-till (any-char) (lookahead (end-of-line)))))
+            (ok (coerce chars 'string)))
           (end-of-line)))
 
 ;;; --- Arithmetic Expression Parser (for EXTINF duration) ---
 
-(defparser parens (parser)
-  (prog2! (char-of #\()
-          (whitespace)
-          parser
-          (whitespace)
-          (char-of #\))))
+(defun parens (parser)
+  "Parse content surrounded by parentheses with optional whitespace."
+  (between (progn! (char-of #\() (whitespace))
+           parser
+           (progn! (whitespace) (char-of #\)))))
 
 (defparser number-expr ()
-  (let! ((ws (whitespace))
+  (let! ((_ (whitespace))
          (num (natural))
-         (ws2 (whitespace)))
-    (declare (ignore ws ws2))
+         (_ (whitespace)))
     (ok num)))
 
-(defparser add-op () (ok #'+))
-(defparser sub-op () (ok #'-))
-(defparser mul-op () (ok #'*))
-(defparser div-op () (ok #'/))
+;; Operator parsers - parse the operator character and return the function
+(defun add-op ()
+  (progn! (char-of #\+) (whitespace) (ok #'+)))
+
+(defun sub-op ()
+  (progn! (char-of #\-) (whitespace) (ok #'-)))
+
+(defun mul-op ()
+  (progn! (char-of #\*) (whitespace) (ok #'*)))
+
+(defun div-op ()
+  (progn! (char-of #\/) (whitespace) (ok #'/)))
 
 ;; `term` handles multiplication and division (higher precedence)
 (defparser term-expr ()
-  (chainl1 (or! (parens (lambda (pstream eok cok efail cfail)
-                          (funcall (expr-parser) pstream eok cok efail cfail)))
-                (number-expr))
-           (or! (prog2! (char-of #\*) (whitespace) (mul-op))
-                (prog2! (char-of #\/) (whitespace) (div-op)))))
+  (chainl1 (or! (parens 'expr-parser)
+                'number-expr)
+           (or! (mul-op) (div-op))))
 
 ;; `expr` handles addition and subtraction (lower precedence)
 (defparser expr-parser ()
-  (chainl1 (term-expr)
-           (or! (prog2! (char-of #\+) (whitespace) (add-op))
-                (prog2! (char-of #\-) (whitespace) (sub-op)))))
+  (chainl1 'term-expr
+           (or! (add-op) (sub-op))))
 
 ;;; --- M3U Specific Parsers ---
 
@@ -86,39 +87,38 @@
 
 (defparser metadata-line ()
   (let! ((_ (try! (string-of "#PLAYLIST:")))
-         (value (collect-into-string (many-till (char-if (constantly t)) (lookahead (end-of-line))))))
-    (ok (cons :playlist value))))
+         (chars (many-till (any-char) (lookahead (end-of-line)))))
+    (ok (cons :playlist (coerce chars 'string)))))
 
 (defparser extinf-line ()
   (let! ((_ (string-of "#EXTINF:"))
-         (duration (or! (expr-parser) (let! (_ (char-of #\-)) (natural))))
+         (duration (or! 'expr-parser (progn! (char-of #\-) (natural))))
          (_ (char-of #\,))
-         (title (collect-into-string (many-till (char-if (constantly t)) (lookahead (end-of-line))))))
-    (ok (list :duration duration :title title))))
+         (chars (many-till (any-char) (lookahead (end-of-line)))))
+    (ok (list :duration duration :title (coerce chars 'string)))))
 
 (defparser path-line ()
-  (let! ((path (not-followed-by (char-of #\#)))
-         (line (collect-into-string (many-till (char-if (constantly t)) (lookahead (end-of-line))))))
-    (declare (ignore path))
-    (ok line)))
+  (let! ((_ (not-followed-by (char-of #\#)))
+         (chars (many-till (any-char) (lookahead (end-of-line)))))
+    (ok (coerce chars 'string))))
 
 (defparser track-entry ()
-  (let! ((inf (extinf-line))
+  (let! ((inf 'extinf-line)
          (_ (end-of-line))
-         (path (optional (path-line))))
+         (path (optional 'path-line)))
     (ok (make-m3u-track :duration (getf inf :duration)
                         :title (getf inf :title)
                         :path (or path "")))))
 
 (defparser playlist-line ()
-  (choice (list (metadata-line)
-                (track-entry)
-                (comment-line))))
+  (choice (list 'metadata-line
+                'track-entry
+                'comment-line)))
 
 (defparser m3u-parser ()
-  (let! ((_ (extm3u-header))
-         (lines (many-till (let! (line (playlist-line))
-                             (_ (optional (end-of-line))))
+  (let! ((_ 'extm3u-header)
+         (lines (many-till (let! ((line 'playlist-line)
+                                  (_ (optional (end-of-line))))
                              (ok line))
                            (eof))))
     (let ((playlist (make-m3u-playlist)))
@@ -136,7 +136,7 @@
 
 (defun parse-m3u (string)
   "Parses an M3U playlist string into an M3U-PLAYLIST struct."
-  (parse (m3u-parser) (make-string-input-stream string)))
+  (parse 'm3u-parser (make-string-input-stream string)))
 
 ;;; --- Example Usage ---
 
@@ -144,12 +144,12 @@
   (let ((m3u-string
          "#EXTM3U
 #PLAYLIST:My Awesome Mix
-; This is a comment
 #EXTINF:(3*60)+45,Artist - Song 1
 /music/song1.mp3
 #EXTINF:-1,Artist - Song 2
 /music/song2.flac
 #EXTINF:180,Artist - Song 3
+/music/song3.ogg
 "))
     (let ((playlist (parse-m3u m3u-string)))
       (format t "--- Parsed M3U Playlist ---~%")
