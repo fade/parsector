@@ -5,8 +5,10 @@
 ;;; ones for expression parsing, lookahead, and optional parsing.
 
 (defpackage #:xyz.shunter.parsnip.examples.m3u
+  (:nicknames #:m3u)
   (:use #:cl #:parsnip)
   (:export #:parse-m3u
+           #:parse-m3u-file
            #:m3u-playlist
            #:m3u-playlist-metadata
            #:m3u-playlist-tracks
@@ -85,10 +87,23 @@
    (string-of "#EXTM3U")
    (end-of-line)))
 
+;; Parse a metadata key: uppercase letters, optionally with underscores/hyphens.
+(defparser metadata-key ()
+  (let! ((chars (collect1 (char-if (lambda (c)
+                                     (or (upper-case-p c)
+                                         (char= c #\_)
+                                         (char= c #\-)))))))
+    (ok (intern (coerce chars 'string) :keyword))))
+
+;; Parse a metadata line like #KEY:value (e.g., #PLAYLIST:, #DURATION:, #CURATOR:).
 (defparser metadata-line ()
-  (let! ((_ (try! (string-of "#PLAYLIST:")))
+  (let! ((_ (char-of #\#))
+         (_ (not-followed-by (string-of "EXTINF")))
+         (_ (not-followed-by (string-of "EXTM3U")))
+         (key 'metadata-key)
+         (_ (char-of #\:))
          (chars (many-till (any-char) (lookahead (end-of-line)))))
-    (ok (cons :playlist (coerce chars 'string)))))
+    (ok (cons key (coerce chars 'string)))))
 
 (defparser extinf-line ()
   (let! ((_ (string-of "#EXTINF:"))
@@ -110,10 +125,15 @@
                         :title (getf inf :title)
                         :path (or path "")))))
 
+;; Parse a blank line (only whitespace before end-of-line).
+(defparser blank-line ()
+  (prog1! (whitespace) (lookahead (end-of-line)) (ok :blank)))
+
 (defparser playlist-line ()
-  (choice (list 'metadata-line
-                'track-entry
-                'comment-line)))
+  (choice (list (try! 'track-entry)
+                (try! 'metadata-line)
+                'comment-line
+                'blank-line)))
 
 (defparser m3u-parser ()
   (let! ((_ 'extm3u-header)
@@ -138,11 +158,15 @@
   "Parses an M3U playlist string into an M3U-PLAYLIST struct."
   (parse 'm3u-parser (make-string-input-stream string)))
 
+(defun parse-m3u-file (pathname)
+  "Parses an M3U playlist file into an M3U-PLAYLIST struct."
+  (with-open-file (stream pathname :direction :input)
+    (parse 'm3u-parser stream)))
+
 ;;; --- Example Usage ---
 
 (defun run-example ()
-  (let ((m3u-string
-         "#EXTM3U
+  (let ((m3u-string "#EXTM3U
 #PLAYLIST:My Awesome Mix
 #EXTINF:(3*60)+45,Artist - Song 1
 /music/song1.mp3

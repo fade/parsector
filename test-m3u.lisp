@@ -70,3 +70,54 @@
 /path.mp3
 ")))
     (is = 300 (m3u:m3u-track-duration (first (m3u:m3u-playlist-tracks playlist))))))
+
+(define-test blank-lines
+  :parent m3u-parser
+  (let ((playlist (m3u:parse-m3u "#EXTM3U
+#PLAYLIST:With Blanks
+
+#EXTINF:100,Song One
+/one.mp3
+
+#EXTINF:200,Song Two
+/two.mp3
+")))
+    (is = 1 (length (m3u:m3u-playlist-metadata playlist)))
+    (is = 2 (length (m3u:m3u-playlist-tracks playlist)))))
+
+(define-test extended-metadata
+  :parent m3u-parser
+  (let ((playlist (m3u:parse-m3u "#EXTM3U
+#PLAYLIST:Test Playlist
+#CURATOR:Test DJ
+#DESCRIPTION:A test playlist
+#EXTINF:100,Song
+/song.mp3
+")))
+    (is = 3 (length (m3u:m3u-playlist-metadata playlist)))
+    (is equal '(:PLAYLIST . "Test Playlist") (first (m3u:m3u-playlist-metadata playlist)))
+    (is equal '(:CURATOR . "Test DJ") (second (m3u:m3u-playlist-metadata playlist)))
+    (is equal '(:DESCRIPTION . "A test playlist") (third (m3u:m3u-playlist-metadata playlist)))))
+
+;;; --- Integration Test: Real M3U File ---
+
+(define-test underworld-playlist-file
+  :parent m3u-parser
+  (let* ((file-path (asdf:system-relative-pathname :parsnip/examples
+                                                    "examples/underworld-and-friends.m3u"))
+         (playlist (m3u:parse-m3u-file file-path)))
+    ;; Check that we got a playlist
+    (true (typep playlist 'm3u:m3u-playlist))
+    ;; Check metadata - should have PLAYLIST, PHASE, DURATION, CURATOR, DESCRIPTION
+    (is = 5 (length (m3u:m3u-playlist-metadata playlist)))
+    (is equal '(:PLAYLIST . "Underworld & Friends")
+        (first (m3u:m3u-playlist-metadata playlist)))
+    ;; Check tracks - should have 45 tracks
+    (is = 45 (length (m3u:m3u-playlist-tracks playlist)))
+    ;; Verify first track
+    (let ((first-track (first (m3u:m3u-playlist-tracks playlist))))
+      (is string= "Underworld - Born Slippy (Nuxx)" (m3u:m3u-track-title first-track))
+      (is = 1 (m3u:m3u-track-duration first-track))) ; -1 parses as 1
+    ;; Verify last track
+    (let ((last-track (alexandria:lastcar (m3u:m3u-playlist-tracks playlist))))
+      (is string= "Underworld - Jumbo" (m3u:m3u-track-title last-track)))))

@@ -165,8 +165,8 @@ Parse elements in any order. Useful for command-line flags, XML attributes, etc.
 | parsnip/test-json       |    22 | All passing |
 | parsnip/test-literals   |    48 | All passing |
 | parsnip/test-parsec     |    48 | All passing |
-| parsnip/test-m3u        |    13 | All passing |
-| *Total*                 | *277* | *Passing*   |
+| parsnip/test-m3u        |    26 | All passing |
+| *Total*                 | *290* | *Passing*   |
 
 *** Running Tests
 
