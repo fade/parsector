@@ -7,8 +7,9 @@
 (in-package #:cl-user)
 (defpackage #:xyz.shunter.parsnip.test-parsec
   (:use #:cl
-        #:xyz.shunter.parsnip)
-  (:local-nicknames (#:tt #:parachute))
+        #:xyz.shunter.parsnip
+        #:parachute)
+  (:shadowing-import-from #:parachute #:fail #:skip)
   (:nicknames #:parsnip/test-parsec))
 (in-package #:xyz.shunter.parsnip.test-parsec)
 
@@ -26,107 +27,107 @@
 ;;; Error Labeling Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.label"
-  (tt:is equal "digit"
+(define-test "parsec.label"
+  (is equal "digit"
          (handler-case
              (parse-string (label (char-of #\a) "digit") "z")
            (parser-error (e) (parser-error-expected e))))
   ;; Label doesn't change successful parse
-  (tt:is equal #\a (parse-string (label (char-of #\a) "letter-a") "abc")))
+  (is equal #\a (parse-string (label (char-of #\a) "letter-a") "abc")))
 
-(tt:define-test "parsec.unexpected"
-  (tt:fail (parse-string (unexpected "end of file") "abc") error)
+(define-test "parsec.unexpected"
+  (fail (parse-string (unexpected "end of file") "abc") error)
   ;; Check the error message contains "unexpected"
   (let ((expected (handler-case
                       (progn (parse-string (unexpected "EOF") "abc") nil)
                     (parser-error (e) (parser-error-expected e)))))
-    (tt:true (and expected (search "unexpected" expected)))))
+    (true (and expected (search "unexpected" expected)))))
 
 ;;; ============================================================
 ;;; Option Combinator Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.option"
+(define-test "parsec.option"
   ;; Returns parsed value on success
-  (tt:is equal #\a (parse-string (option #\z (char-of #\a)) "abc"))
+  (is equal #\a (parse-string (option #\z (char-of #\a)) "abc"))
   ;; Returns default on failure
-  (tt:is equal #\z (parse-string (option #\z (char-of #\a)) "xyz"))
+  (is equal #\z (parse-string (option #\z (char-of #\a)) "xyz"))
   ;; Works with complex parsers
-  (tt:is equal 0 (parse-string (option 0 (natural)) "abc"))
-  (tt:is equal 42 (parse-string (option 0 (natural)) "42")))
+  (is equal 0 (parse-string (option 0 (natural)) "abc"))
+  (is equal 42 (parse-string (option 0 (natural)) "42")))
 
 ;;; ============================================================
 ;;; Separator Combinator Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.sep-end-by"
+(define-test "parsec.sep-end-by"
   ;; Zero items
-  (tt:is equal '() (parse-string (sep-end-by (char-of #\a) (char-of #\,)) ""))
+  (is equal '() (parse-string (sep-end-by (char-of #\a) (char-of #\,)) ""))
   ;; One item, no trailing sep
-  (tt:is equal '(#\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a"))
+  (is equal '(#\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a"))
   ;; One item, trailing sep
-  (tt:is equal '(#\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,"))
+  (is equal '(#\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,"))
   ;; Multiple items, no trailing sep
-  (tt:is equal '(#\a #\a #\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,a,a"))
+  (is equal '(#\a #\a #\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,a,a"))
   ;; Multiple items, trailing sep
-  (tt:is equal '(#\a #\a #\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,a,a,")))
+  (is equal '(#\a #\a #\a) (parse-string (sep-end-by (char-of #\a) (char-of #\,)) "a,a,a,")))
 
-(tt:define-test "parsec.sep-end-by1"
+(define-test "parsec.sep-end-by1"
   ;; Must have at least one item
-  (tt:fail (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "") error)
+  (fail (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "") error)
   ;; One item works
-  (tt:is equal '(#\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a"))
+  (is equal '(#\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a"))
   ;; Trailing sep works
-  (tt:is equal '(#\a #\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a,a,"))
-  (tt:is equal '(#\a #\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a,a")))
+  (is equal '(#\a #\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a,a,"))
+  (is equal '(#\a #\a) (parse-string (sep-end-by1 (char-of #\a) (char-of #\,)) "a,a")))
 
 ;;; ============================================================
 ;;; Skip Combinator Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.skip-many1"
+(define-test "parsec.skip-many1"
   ;; Fails if no match
-  (tt:fail (parse-string (skip-many1 (char-of #\a)) "bbb") error)
+  (fail (parse-string (skip-many1 (char-of #\a)) "bbb") error)
   ;; Succeeds with one or more, returns nil
-  (tt:is equal nil (parse-string (skip-many1 (char-of #\a)) "aaa"))
-  (tt:is equal nil (parse-string (skip-many1 (char-of #\a)) "a")))
+  (is equal nil (parse-string (skip-many1 (char-of #\a)) "aaa"))
+  (is equal nil (parse-string (skip-many1 (char-of #\a)) "a")))
 
 ;;; ============================================================
 ;;; Position Access Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.get-line"
-  (tt:is equal 1 (parse-string (get-line) "abc"))
+(define-test "parsec.get-line"
+  (is equal 1 (parse-string (get-line) "abc"))
   ;; After newline, line increases
-  (tt:is equal 2 (parse-string (progn! (char-of #\Newline) (get-line))
+  (is equal 2 (parse-string (progn! (char-of #\Newline) (get-line))
                                (format nil "~%abc"))))
 
-(tt:define-test "parsec.get-column"
-  (tt:is equal 0 (parse-string (get-column) "abc"))
+(define-test "parsec.get-column"
+  (is equal 0 (parse-string (get-column) "abc"))
   ;; After consuming chars via char-of, column increases
   ;; Note: string-of uses read-sequence and doesn't track position per-char
-  (tt:is equal 3 (parse-string (progn! (char-of #\a) (char-of #\b) (char-of #\c) (get-column)) "abcdef")))
+  (is equal 3 (parse-string (progn! (char-of #\a) (char-of #\b) (char-of #\c) (get-column)) "abcdef")))
 
-(tt:define-test "parsec.get-position"
+(define-test "parsec.get-position"
   (let ((pos (parse-string (get-position) "abc")))
-    (tt:is equal 3 (length pos))  ; (position line column)
-    (tt:is equal 1 (second pos))  ; line
-    (tt:is equal 0 (third pos)))) ; column
+    (is equal 3 (length pos))  ; (position line column)
+    (is equal 1 (second pos))  ; line
+    (is equal 0 (third pos)))) ; column
 
 ;;; ============================================================
 ;;; Expression Parser Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.expression-parser-basic"
+(define-test "parsec.expression-parser-basic"
   ;; Simple addition
   (let ((expr (build-expression-parser
                (list (list (infix (progn! (char-of #\+) (ok #'+)) (assoc-left))))
                (natural))))
-    (tt:is equal 3 (parse-string expr "1+2"))
-    (tt:is equal 6 (parse-string expr "1+2+3"))
-    (tt:is equal 10 (parse-string expr "10"))))
+    (is equal 3 (parse-string expr "1+2"))
+    (is equal 6 (parse-string expr "1+2+3"))
+    (is equal 10 (parse-string expr "10"))))
 
-(tt:define-test "parsec.expression-parser-precedence"
+(define-test "parsec.expression-parser-precedence"
   ;; Multiplication has higher precedence than addition
   (let ((expr (build-expression-parser
                (list
@@ -135,27 +136,27 @@
                 ;; Lower precedence
                 (list (infix (progn! (char-of #\+) (ok #'+)) (assoc-left))))
                (natural))))
-    (tt:is equal 7 (parse-string expr "1+2*3"))   ; 1 + (2*3) = 7
-    (tt:is equal 14 (parse-string expr "2*3+2*4")))) ; (2*3) + (2*4) = 14
+    (is equal 7 (parse-string expr "1+2*3"))   ; 1 + (2*3) = 7
+    (is equal 14 (parse-string expr "2*3+2*4")))) ; (2*3) + (2*4) = 14
 
-(tt:define-test "parsec.expression-parser-prefix"
+(define-test "parsec.expression-parser-prefix"
   ;; Negation prefix operator
   (let ((expr (build-expression-parser
                (list (list (prefix (progn! (char-of #\-) (ok #'-)))))
                (natural))))
-    (tt:is equal -5 (parse-string expr "-5"))
-    (tt:is equal 5 (parse-string expr "5"))))
+    (is equal -5 (parse-string expr "-5"))
+    (is equal 5 (parse-string expr "5"))))
 
-(tt:define-test "parsec.expression-parser-right-assoc"
+(define-test "parsec.expression-parser-right-assoc"
   ;; Exponentiation is right-associative
   (let ((expr (build-expression-parser
                (list (list (infix (progn! (char-of #\^) (ok #'expt)) (assoc-right))))
                (natural))))
-    (tt:is equal 8 (parse-string expr "2^3"))
+    (is equal 8 (parse-string expr "2^3"))
     ;; 2^3^2 = 2^(3^2) = 2^9 = 512 (right assoc)
-    (tt:is equal 512 (parse-string expr "2^3^2"))))
+    (is equal 512 (parse-string expr "2^3^2"))))
 
-(tt:define-test "parsec.expression-parser-postfix"
+(define-test "parsec.expression-parser-postfix"
   ;; Factorial-like postfix operator
   (let ((expr (build-expression-parser
                (list (list (postfix (progn! (char-of #\!) (ok (lambda (n)
@@ -163,32 +164,32 @@
                                                                       for r = 1 then (* r i)
                                                                       finally (return r))))))))
                (natural))))
-    (tt:is equal 120 (parse-string expr "5!"))
-    (tt:is equal 5 (parse-string expr "5"))))
+    (is equal 120 (parse-string expr "5!"))
+    (is equal 5 (parse-string expr "5"))))
 
-(tt:define-test "parsec.expression-parser-assoc-none"
+(define-test "parsec.expression-parser-assoc-none"
   ;; Non-associative comparison operator - should parse a single use but not chain
   (let ((expr (build-expression-parser
                (list (list (infix (progn! (char-of #\=) (ok (lambda (a b) (list := a b))))
                                   (assoc-none))))
                (natural))))
-    (tt:is equal '(:= 1 2) (parse-string expr "1=2"))
-    (tt:is equal 5 (parse-string expr "5"))))
+    (is equal '(:= 1 2) (parse-string expr "1=2"))
+    (is equal 5 (parse-string expr "5"))))
 
-(tt:define-test "parsec.get-input"
+(define-test "parsec.get-input"
   ;; get-input returns the underlying stream without consuming
   (let ((result (parse-string (let! ((s (get-input))
                                      (c (any-char)))
                                 (ok (list (streamp s) c)))
                               "abc")))
-    (tt:is equal t (first result))
-    (tt:is equal #\a (second result))))
+    (is equal t (first result))
+    (is equal #\a (second result))))
 
 ;;; ============================================================
 ;;; Token Parser Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.token-parser-basic"
+(define-test "parsec.token-parser-basic"
   (let* ((lang (make-language-def
                 :comment-line "//"
                 :comment-start "/*"
@@ -199,13 +200,13 @@
                 :case-sensitive t))
          (tp (make-token-parser lang)))
     ;; Natural number
-    (tt:is equal 42 (parse-string (token-parser-natural tp) "42"))
+    (is equal 42 (parse-string (token-parser-natural tp) "42"))
     ;; Integer
-    (tt:is equal -5 (parse-string (token-parser-integer tp) "-5"))
+    (is equal -5 (parse-string (token-parser-integer tp) "-5"))
     ;; Symbol
-    (tt:is equal "+" (parse-string (funcall (token-parser-symbol tp) "+") "+"))))
+    (is equal "+" (parse-string (funcall (token-parser-symbol tp) "+") "+"))))
 
-(tt:define-test "parsec.deftoken"
+(define-test "parsec.deftoken"
   (let* ((lang (make-language-def
                 :comment-line "//"
                 :ident-start (letter)
@@ -216,40 +217,40 @@
     ;; deftoken creates a function that returns the accessor's parser
     (deftoken test-natural tp token-parser-natural)
     (deftoken test-integer tp token-parser-integer)
-    (tt:is equal 42 (parse-string (test-natural) "42"))
-    (tt:is equal -7 (parse-string (test-integer) "-7"))))
+    (is equal 42 (parse-string (test-natural) "42"))
+    (is equal -7 (parse-string (test-integer) "-7"))))
 
 ;;; ============================================================
 ;;; Permutation Parser Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.permute-basic"
+(define-test "parsec.permute-basic"
   ;; Parse a and b in any order
   (let ((parser (permute (perm-req (char-of #\a))
                          (perm-req (char-of #\b)))))
-    (tt:is equal '(#\a #\b) (parse-string parser "ab"))
-    (tt:is equal '(#\a #\b) (parse-string parser "ba"))))
+    (is equal '(#\a #\b) (parse-string parser "ab"))
+    (is equal '(#\a #\b) (parse-string parser "ba"))))
 
-(tt:define-test "parsec.permute-optional"
+(define-test "parsec.permute-optional"
   ;; Parse a (required) and b (optional, default #\z)
   (let ((parser (permute (perm-req (char-of #\a))
                          (perm-opt #\z (char-of #\b)))))
-    (tt:is equal '(#\a #\b) (parse-string parser "ab"))
-    (tt:is equal '(#\a #\b) (parse-string parser "ba"))
-    (tt:is equal '(#\a #\z) (parse-string parser "a"))))
+    (is equal '(#\a #\b) (parse-string parser "ab"))
+    (is equal '(#\a #\b) (parse-string parser "ba"))
+    (is equal '(#\a #\z) (parse-string parser "a"))))
 
 ;;; ============================================================
 ;;; Debugging Combinator Tests
 ;;; ============================================================
 
-(tt:define-test "parsec.parser-trace"
+(define-test "parsec.parser-trace"
   ;; parser-trace should succeed and return nil
-  (tt:is equal nil (parse-string (parser-trace "test") "abc"))
+  (is equal nil (parse-string (parser-trace "test") "abc"))
   ;; It shouldn't consume input
-  (tt:is equal #\a (parse-string (progn! (parser-trace "test") (any-char)) "abc")))
+  (is equal #\a (parse-string (progn! (parser-trace "test") (any-char)) "abc")))
 
-(tt:define-test "parsec.parser-traced"
+(define-test "parsec.parser-traced"
   ;; parser-traced wraps a parser and traces it
-  (tt:is equal #\a (parse-string (parser-traced "any" (any-char)) "abc"))
+  (is equal #\a (parse-string (parser-traced "any" (any-char)) "abc"))
   ;; Failure case
-  (tt:fail (parse-string (parser-traced "digit" (digit)) "abc") error))
+  (fail (parse-string (parser-traced "digit" (digit)) "abc") error))
