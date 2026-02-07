@@ -8,7 +8,7 @@
   :description "Parser combinator library"
   :author "Samuel Hunter"
   :license  "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :homepage "https://sr.ht/~shunter/parsnip/"
   :source-control (:git "https://git.sr.ht/~shunter/parsnip")
@@ -23,7 +23,7 @@
   :description "Parsnip library examples"
   :author "Samuel Hunter"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip
                #:alexandria)
@@ -37,7 +37,7 @@
   :description "Parsnip library test suite"
   :author "Samuel Hunter"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip
                #:parachute)
@@ -49,7 +49,7 @@
   :description "Test suite for the Parsnip JSON example"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip/examples
                #:parachute)
@@ -61,7 +61,7 @@
   :description "Test suite for the new literal parsers"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip
                #:parachute)
@@ -73,7 +73,7 @@
   :description "Test suite for Parsec-compatible combinators"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip
                #:parachute)
@@ -85,7 +85,7 @@
   :description "Test suite for the M3U playlist parser example"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip/examples
                #:parachute)
@@ -97,7 +97,7 @@
   :description "Test suite for the tiny-c parser example"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip/examples
                #:parachute)
@@ -109,7 +109,7 @@
   :description "Run all Parsnip test suites"
   :author "Brian O'Reilly <fade@deepsky.com>"
   :license "BSD 3-Clause"
-  :version "0.0.7"
+  :version "0.1.0"
 
   :depends-on (#:parsnip/test
                #:parsnip/test-json
