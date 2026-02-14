@@ -6,7 +6,7 @@
 (require :sb-sprof)
 (require :parsector/examples/json)
 
-(defpackage #:parsector/stats/profile
+(uiop:define-package #:parsector/stats/profile
   (:use #:cl #:parsector/examples/json))
 
 (in-package #:parsector/stats/profile)

@@ -7,7 +7,7 @@
 ;;; showcasing a wide range of `parsector` combinators, including the newly added
 ;;; ones for expression parsing, lookahead, and optional parsing.
 
-(defpackage #:parsector/examples/m3u
+(uiop:define-package #:parsector/examples/m3u
   (:nicknames #:m3u)
   (:use #:cl #:parsector)
   (:export #:parse-m3u

@@ -2,7 +2,7 @@
 
 (require :sb-cover)
 
-(defpackage #:parsector/stats/coverage
+(uiop:define-package #:parsector/stats/coverage
   (:use #:cl)
   (:export #:report))
 

@@ -3,7 +3,7 @@
 ;;; Copyright 2022 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector/examples/tiny-c
+(uiop:define-package #:parsector/examples/tiny-c
   (:documentation "Parsector example tiny C parser")
   (:use #:cl #:parsector)
   (:export

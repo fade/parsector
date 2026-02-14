@@ -4,7 +4,7 @@
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector/test/parsec
+(uiop:define-package #:parsector/test/parsec
   (:use #:cl
         #:parsector
         #:parachute)

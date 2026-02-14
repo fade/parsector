@@ -3,7 +3,7 @@
 ;;; Additions by Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector/test/literals
+(uiop:define-package #:parsector/test/literals
   (:use #:cl
         #:parsector)
   (:local-nicknames (#:tt #:parachute)))

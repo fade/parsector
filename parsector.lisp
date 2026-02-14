@@ -4,7 +4,7 @@
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector
+(uiop:define-package #:parsector
   (:documentation "Monadic parser combinator library")
   (:nicknames #:parsector)
   (:use #:cl)

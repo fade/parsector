@@ -4,7 +4,7 @@
 ;;; Additions by Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector/examples/json
+(uiop:define-package #:parsector/examples/json
   (:documentation "Parsector example JSON decoder using a token parser.")
   (:use #:cl #:parsector)
   (:export #:decode-json

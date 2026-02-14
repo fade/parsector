@@ -7,7 +7,7 @@
 (require :cl-json)
 (require :parsector/examples/json)
 
-(defpackage #:parsector/stats/benchmark
+(uiop:define-package #:parsector/stats/benchmark
   (:use #:cl #:parsector/examples/json)
   (:export #:benchmark))
 

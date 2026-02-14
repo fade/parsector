@@ -4,14 +4,14 @@
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:parsector/test
+(uiop:define-package #:parsector/test/package
   (:use #:cl
         #:parsector)
   (:import-from #:alexandria
                 #:curry)
   (:local-nicknames (#:t #:parachute)))
 
-(in-package #:parsector/test)
+(in-package #:parsector/test/package)
 
 
 

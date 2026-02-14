@@ -1,6 +1,6 @@
 ;;; test/json.lisp - Test suite for the Parsector JSON example
 
-(defpackage #:parsector/test/json
+(uiop:define-package #:parsector/test/json
   (:use #:cl
         #:parsector
         #:parsector/examples/json)

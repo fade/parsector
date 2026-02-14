@@ -1,6 +1,6 @@
 ;;; test/m3u.lisp - Tests for the M3U playlist parser example
 
-(defpackage #:parsector/test/m3u
+(uiop:define-package #:parsector/test/m3u
   (:use #:cl #:parachute)
   (:local-nicknames (#:m3u #:parsector/examples/m3u)))
 

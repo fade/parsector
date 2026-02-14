@@ -1,6 +1,6 @@
 ;;; test/tiny-c.lisp - Tests for the tiny-c parser example
 
-(defpackage #:parsector/test/tiny-c
+(uiop:define-package #:parsector/test/tiny-c
   (:use #:cl #:parachute)
   (:local-nicknames (#:tc #:parsector/examples/tiny-c)))
 
