@@ -1,141 +1,923 @@
-#+TITLE: Parsector Library - Overview of New Combinators
+#+TITLE: Parsector Library Reference
 #+AUTHOR: Brian O'Reilly
 
 * Introduction
 
-This document provides an overview and idiomatic usage examples for the newly added monadic parser combinators in the Parsector library. These combinators extend Parsector's capabilities, offering more powerful and expressive ways to build parsers for complex grammars, inspired by established libraries like Haskell's Parsec.
+Parsector is a monadic parser combinator library for Common Lisp. It uses a continuation-passing style with four continuations per parser (eok, cok, efail, cfail) to distinguish between consumed and empty successes/failures. This enables precise error recovery and informative error messages with line/column tracking.
 
-For a deeper understanding of Parsector's core concepts (like monadic parsers, continuations, and the four-track failure model), please refer to the main library documentation.
-
-* New Combinators
-
-** 1. ~choice~
-
-~choice~ attempts to parse with a list of parsers, succeeding with the first one that successfully parses. It is a convenience wrapper around ~or!~.
+All examples below use a helper function for brevity:
 
 #+BEGIN_SRC common-lisp
-(defun digit-char-parser ()
-  (parsector:char-if #'digit-char-p))
-
-(defun letter-char-parser ()
-  (parsector:char-if #'alpha-char-p))
-
-(defun alpha-numeric-parser ()
-  "Parses either a letter or a digit."
-  (parsector:choice (list (letter-char-parser)
-                        (digit-char-parser))))
-
-;; Example Usage:
-;; (parsector:parse (alpha-numeric-parser) (make-string-input-stream "a")) ; => #\a
-;; (parsector:parse (alpha-numeric-parser) (make-string-input-stream "1")) ; => #\1
-;; (handler-case (parsector:parse (alpha-numeric-parser) (make-string-input-stream "@"))
-;;   (parsector:parser-error () :fail)) ; => :fail
+(defun parse-string (parser string)
+  (with-input-from-string (stream string)
+    (parsector:parse parser stream)))
 #+END_SRC
 
-** 2. ~many-till~
+* Running Parsers
 
-~many-till parser end~ applies ~parser~ zero or more times until the ~end~ parser successfully parses. It returns a list of results from ~parser~. The result of the ~end~ parser is discarded.
+** ~parse~
+
+Runs a parser on a stream and returns its result, or signals a ~parser-error~ condition on failure.
 
 #+BEGIN_SRC common-lisp
-(defun char-a-parser () (parsector:char-of #\a))
-(defun char-b-parser () (parsector:char-of #\b))
+(parsector:parse (parsector:string-of "hello")
+                 (make-string-input-stream "hello"))
+;; => "hello"
 
-(defun until-b-parser ()
-  "Parses zero or more 'a's until a 'b' is encountered."
-  (parsector:many-till (char-a-parser) (char-b-parser)))
-
-;; Example Usage:
-;; (parsector:parse (until-b-parser) (make-string-input-stream "aaab")) ; => '(#\a #\a #\a)
-;; (parsector:parse (until-b-parser) (make-string-input-stream "b"))    ; => '()
+(handler-case
+    (parsector:parse (parsector:char-of #\a) (make-string-input-stream "z"))
+  (parsector:parser-error (e)
+    (values (parsector:parser-error-line e)
+            (parsector:parser-error-column e)
+            (parsector:parser-error-expected e))))
+;; => 1, 0, "#\\a"
 #+END_SRC
 
-** 3. ~optional~
+* Primary Parsers
 
-~optional parser~ attempts to apply ~parser~. If ~parser~ succeeds, its result is returned. If ~parser~ fails (without consuming input, thanks to ~try!~), ~nil~ is returned instead, and no input is consumed.
+** ~ok~
+
+Returns a parser that always succeeds without consuming input, returning the given value.
 
 #+BEGIN_SRC common-lisp
-(defun optional-hello-parser ()
-  "Optionally parses the string 'hello'."
-  (parsector:optional (parsector:string-of "hello")))
-
-;; Example Usage:
-;; (parsector:parse (optional-hello-parser) (make-string-input-stream "hello")) ; => "hello"
-;; (parsector:parse (optional-hello-parser) (make-string-input-stream "world")) ; => NIL
+(parse-string (parsector:ok 42) "anything") ;; => 42
 #+END_SRC
 
-** 4. ~lookahead~
+** ~fail~
 
-~lookahead parser~ runs ~parser~, but always rewinds the input stream afterwards. It returns the result of ~parser~ if successful. It's useful for checking if a certain pattern is present without consuming the input. Requires a seekable stream.
+Returns a parser that always fails without consuming input.
 
 #+BEGIN_SRC common-lisp
-(defun check-abc-then-parse-x-parser ()
-  "Checks for 'abc' then parses 'x'. 'abc' is not consumed by lookahead."
-  (parsector:let! ((_ (parsector:lookahead (parsector:string-of "abc")))
-                 (res (parsector:char-of #\x)))
-    (declare (ignore _)) ; Ignore the result of lookahead as it's just a check
-    (parsector:ok res)))
-
-;; Example Usage:
-;; (parsector:parse (check-abc-then-parse-x-parser) (make-string-input-stream "x")) ; => #\x
-;; (handler-case (parsector:parse (check-abc-then-parse-x-parser) (make-string-input-stream "abc"))
-;;   (parsector:parser-error () :fail)) ; => :fail (because 'x' is not found)
+(handler-case (parse-string (parsector:fail "a number") "xyz")
+  (parsector:parser-error () :failed))
+;; => :FAILED
 #+END_SRC
 
-** 5. ~not-followed-by~
+** ~char-if~
 
-~not-followed-by parser~ succeeds if ~parser~ fails, and fails if ~parser~ succeeds. In either case, it never consumes any input. This is useful for negative lookaheads, e.g., to ensure a keyword is not followed by an identifier character. Requires a seekable stream.
+Consumes a single character satisfying a predicate.
 
 #+BEGIN_SRC common-lisp
-(defun keyword-if-not-alpha-parser ()
-  "Parses 'def' only if it's not followed by a letter."
-  (parsector:let! ((kw (parsector:string-of "def"))
-                 (_ (parsector:not-followed-by (parsector:char-if #'alpha-char-p))))
-    (declare (ignore _))
-    (parsector:ok kw)))
-
-;; Example Usage:
-;; (parsector:parse (keyword-if-not-alpha-parser) (make-string-input-stream "def ")) ; => "def"
-;; (handler-case (parsector:parse (keyword-if-not-alpha-parser) (make-string-input-stream "defvar"))
-;;   (parsector:parser-error () :fail)) ; => :fail
+(parse-string (parsector:char-if #'alpha-char-p) "abc")    ;; => #\a
+(parse-string (parsector:char-if #'digit-char-p "digit") "7") ;; => #\7
 #+END_SRC
 
-** 6. ~chainl1~
+** ~char-of~
 
-~chainl1 p op~ parses one or more occurrences of ~p~, separated by ~op~. It returns a single value obtained by applying the functions returned by ~op~ left-associatively to the values returned by ~p~. ~p~ should return values, and ~op~ should return functions that take two values and return a new value (e.g., `(lambda (a b) (+ a b))`).
+Consumes exactly the given character.
 
 #+BEGIN_SRC common-lisp
-(defun integer-parser ()
-  (parsector:natural))
-
-(defun plus-op-parser ()
-  (parsector:prog2! (parsector:char-of #\+) (parsector:ok #'+))) ; Returns the '+' function
-
-(defun subtract-op-parser ()
-  (parsector:prog2! (parsector:char-of #\-) (parsector:ok #'-))) ; Returns the '-' function
-
-(defun left-associative-add-sub-parser ()
-  "Parses a sequence of numbers with '+' or '-' operators, evaluated left-associatively."
-  (parsector:chainl1 (integer-parser)
-                   (parsector:choice (list (plus-op-parser)
-                                         (subtract-op-parser)))))
-
-;; Example Usage:
-;; (parsector:parse (left-associative-add-sub-parser) (make-string-input-stream "10+5-2")) ; => 13  ( (10 + 5) - 2 )
+(parse-string (parsector:char-of #\x) "xyz") ;; => #\x
 #+END_SRC
 
-** 7. ~chainr1~
+** ~char-in~
 
-~chainr1 p op~ parses one or more occurrences of ~p~, separated by ~op~. It returns a single value obtained by applying the functions returned by ~op~ right-associatively to the values returned by ~p~. ~p~ should return values, and ~op~ should return functions that take two values and return a new value.
+Consumes a character that is a member of the given sequence.
 
 #+BEGIN_SRC common-lisp
-(defun power-op-parser ()
-  (parsector:prog2! (parsector:char-of #\^) (parsector:ok #'expt))) ; Returns the 'expt' function
-
-(defun right-associative-power-parser ()
-  "Parses a sequence of numbers with '^' operator, evaluated right-associatively."
-  (parsector:chainr1 (integer-parser)
-                   (power-op-parser)))
-
-;; Example Usage:
-;; (parsector:parse (right-associative-power-parser) (make-string-input-stream "2^3^2")) ; => 512 ( 2 ^ (3 ^ 2) )
+(parse-string (parsector:char-in "aeiou") "orange") ;; => #\o
+(parse-string (parsector:char-in #(#\+ #\-)) "+3")  ;; => #\+
 #+END_SRC
+
+** ~none-of~
+
+Consumes a character that is /not/ in the given sequence.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:none-of "abc") "xyz") ;; => #\x
+#+END_SRC
+
+** ~string-of~
+
+Consumes an exact string. Note: this parser may consume partial input on failure (use ~try!~ to prevent this).
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:string-of "hello") "hello world") ;; => "hello"
+#+END_SRC
+
+** ~eof~
+
+Succeeds only at end of input, without consuming anything.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:eof :done) "")        ;; => :DONE
+(parse-string (parsector:eof) "")              ;; => NIL
+#+END_SRC
+
+* Monadic Combinators
+
+** ~flatmap~
+
+The fundamental monadic bind. Applies a function to the result of a parser; the function must return a new parser.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:flatmap (lambda (c)
+                      (if (char= c #\a)
+                          (parsector:ok :found-a)
+                          (parsector:fail "the letter a")))
+                    (parsector:any-char))
+ "abc")
+;; => :FOUND-A
+#+END_SRC
+
+** ~let!~
+
+Macro for sequencing parsers with named bindings. Each binding runs a parser and binds the result; the body must return a parser.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:let! ((first (parsector:letter))
+                  (second (parsector:digit)))
+   (parsector:ok (list first second)))
+ "a7")
+;; => (#\a 7)
+#+END_SRC
+
+** ~handle~
+
+Attaches an error handler to a parser. On empty failure, calls the handler with the expected value and trace; the handler must return a new parser. Does not handle consumed failures.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:handle (parsector:char-of #\a)
+                   (lambda (expected trace)
+                     (declare (ignore expected trace))
+                     (parsector:ok :default)))
+ "z")
+;; => :DEFAULT
+#+END_SRC
+
+** ~handle-rewind~
+
+Like ~handle~, but also handles consumed failures by rewinding the stream to its position before the parser ran. Requires a seekable stream.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:handle-rewind
+  (parsector:string-of "abc")
+  (lambda (expected trace)
+    (declare (ignore expected trace))
+    (parsector:string-of "abd")))
+ "abd")
+;; => "abd"
+#+END_SRC
+
+** ~try!~
+
+Wraps a parser so that consumed failures are converted to empty failures by rewinding the stream. Essential for backtracking in ~or!~ alternatives. Requires a seekable stream.
+
+#+BEGIN_SRC common-lisp
+;; Without try!, "boo" partially matches "boot" and causes a hard failure.
+;; With try!, the stream rewinds and the second alternative is tried.
+(parse-string
+ (parsector:or! (parsector:try! (parsector:string-of "boot"))
+                (parsector:string-of "bool"))
+ "bool")
+;; => "bool"
+#+END_SRC
+
+* Sequential Combinators
+
+** ~progn!~
+
+Runs parsers in sequence and returns the /last/ result.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:progn! (parsector:char-of #\()
+                   (parsector:natural)
+                   (parsector:char-of #\)))
+ "(42)")
+;; => #\)    (the last parser's result)
+#+END_SRC
+
+** ~prog1!~
+
+Runs parsers in sequence and returns the /first/ result.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:prog1! (parsector:natural)
+                   (parsector:char-of #\;))
+ "42;")
+;; => 42
+#+END_SRC
+
+** ~prog2!~
+
+Runs parsers in sequence and returns the /second/ result.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:prog2! (parsector:char-of #\[)
+                   (parsector:natural)
+                   (parsector:char-of #\]))
+ "[42]")
+;; => 42
+#+END_SRC
+
+** ~between~
+
+Parses an opening delimiter, a body, and a closing delimiter; returns only the body's result.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:between (parsector:char-of #\()
+                    (parsector:natural)
+                    (parsector:char-of #\)))
+ "(99)")
+;; => 99
+#+END_SRC
+
+* Choice Combinators
+
+** ~or!~
+
+Tries each parser in order. On empty failure, tries the next alternative. On consumed failure, the error propagates (use ~try!~ to backtrack).
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:or! (parsector:char-of #\a)
+                (parsector:char-of #\b)
+                (parsector:char-of #\c))
+ "b")
+;; => #\b
+#+END_SRC
+
+** ~choice~
+
+Like ~or!~ but takes a list of parsers instead of variadic arguments.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:choice (list (parsector:string-of "red")
+                         (parsector:string-of "green")
+                         (parsector:string-of "blue")))
+ "green")
+;; => "green"
+#+END_SRC
+
+* Collection Combinators
+
+** ~collect~ / ~many~
+
+Runs a parser zero or more times, collecting results into a list. (~many~ is an alias for ~collect~.)
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:collect (parsector:char-of #\a)) "aaab") ;; => (#\a #\a #\a)
+(parse-string (parsector:many (parsector:char-of #\a)) "b")       ;; => NIL
+#+END_SRC
+
+** ~collect1~ / ~many1~
+
+Like ~collect~, but requires at least one match. (~many1~ is an alias for ~collect1~.)
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:collect1 (parsector:digit)) "123x") ;; => (1 2 3)
+;; (parse-string (parsector:many1 (parsector:digit)) "abc")  ;; => parser-error
+#+END_SRC
+
+** ~collect-into-string~
+
+Like ~collect~, but coerces character results into a string.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:collect-into-string (parsector:char-if #'alpha-char-p))
+ "hello123")
+;; => "hello"
+#+END_SRC
+
+** ~sep~
+
+Parses one or more occurrences of a value parser separated by a separator parser.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:sep (parsector:natural) (parsector:char-of #\,))
+ "1,2,3")
+;; => (1 2 3)
+#+END_SRC
+
+** ~sep-by~
+
+Like ~sep~, but accepts zero or more occurrences (returns ~NIL~ on no match).
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:sep-by (parsector:natural) (parsector:char-of #\,))
+ "")
+;; => NIL
+
+(parse-string
+ (parsector:sep-by (parsector:natural) (parsector:char-of #\,))
+ "1,2,3")
+;; => (1 2 3)
+#+END_SRC
+
+** ~end-by~
+
+Parses zero or more occurrences of a value parser, each terminated by a separator.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:end-by (parsector:char-of #\a) (parsector:char-of #\;))
+ "a;a;a;")
+;; => (#\a #\a #\a)
+#+END_SRC
+
+** ~end-by1~
+
+Like ~end-by~, but requires at least one occurrence.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:end-by1 (parsector:natural) (parsector:char-of #\;))
+ "10;20;")
+;; => (10 20)
+#+END_SRC
+
+** ~sep-end-by~
+
+Parses zero or more occurrences separated by a separator, with an optional trailing separator. Handles both ~"a,b,c"~ and ~"a,b,c,"~ equally.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:sep-end-by (parsector:natural) (parsector:char-of #\,))
+ "1,2,3,")
+;; => (1 2 3)
+#+END_SRC
+
+** ~sep-end-by1~
+
+Like ~sep-end-by~, but requires at least one occurrence.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:sep-end-by1 (parsector:natural) (parsector:char-of #\,))
+ "42,")
+;; => (42)
+#+END_SRC
+
+** ~parse-count~
+
+Parses exactly N occurrences.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:parse-count 3 (parsector:char-of #\a))
+ "aaab")
+;; => (#\a #\a #\a)
+#+END_SRC
+
+** ~many-till~
+
+Applies a parser zero or more times until an end parser succeeds. The end parser's result is discarded.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:many-till (parsector:any-char)
+                      (parsector:char-of #\.))
+ "hello.")
+;; => (#\h #\e #\l #\l #\o)
+#+END_SRC
+
+* Reduction and Skipping
+
+** ~reduce!~
+
+Runs a parser repeatedly, reducing results into a single value with a binary function. Optionally takes an ~:initial-parser~ for the seed value.
+
+#+BEGIN_SRC common-lisp
+;; Sum of digits: 1 + 2 + 3 = 6
+(parse-string
+ (parsector:reduce! #'+ (parsector:digit))
+ "123x")
+;; => 6
+#+END_SRC
+
+** ~skip~
+
+Runs a parser but pretends no input was consumed (converts consumed success to empty success).
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:progn! (parsector:skip (parsector:string-of "prefix"))
+                   (parsector:string-of "prefix"))
+ "prefix")
+;; The skip makes parsector think "prefix" wasn't consumed,
+;; but the stream position still advances.
+#+END_SRC
+
+** ~skip-many~
+
+Runs a parser zero or more times, discarding all results and pretending no input was consumed.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:progn! (parsector:skip-many (parsector:char-of #\Space))
+                   (parsector:natural))
+ "   42")
+;; => 42
+#+END_SRC
+
+** ~skip-many1~
+
+Like ~skip-many~, but requires at least one match.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:progn! (parsector:skip-many1 (parsector:char-of #\Space))
+                   (parsector:natural))
+ "   42")
+;; => 42
+
+;; (parse-string
+;;  (parsector:progn! (parsector:skip-many1 (parsector:char-of #\Space))
+;;                    (parsector:natural))
+;;  "42")
+;; => parser-error (no leading spaces)
+#+END_SRC
+
+* Lookahead and Optional
+
+** ~optional~
+
+Tries a parser. Returns its result on success, or ~NIL~ on empty failure. Uses ~try!~ internally to ensure backtracking.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:optional (parsector:string-of "hello")) "hello") ;; => "hello"
+(parse-string (parsector:optional (parsector:string-of "hello")) "world") ;; => NIL
+#+END_SRC
+
+** ~lookahead~
+
+Runs a parser without consuming input. On success, the stream position is rewound. Requires a seekable stream.
+
+#+BEGIN_SRC common-lisp
+;; Peek at the next character without consuming it
+(parse-string
+ (parsector:let! ((peeked (parsector:lookahead (parsector:any-char)))
+                  (actual (parsector:any-char)))
+   (parsector:ok (list :peeked peeked :actual actual)))
+ "abc")
+;; => (:PEEKED #\a :ACTUAL #\a)
+#+END_SRC
+
+** ~not-followed-by~
+
+Succeeds if the given parser /fails/; fails if it /succeeds/. Never consumes input. Requires a seekable stream. Useful for negative lookahead.
+
+#+BEGIN_SRC common-lisp
+;; Parse "def" only if not followed by a letter (i.e., it's a keyword, not an identifier)
+(parse-string
+ (parsector:let! ((kw (parsector:string-of "def"))
+                  (_ (parsector:not-followed-by (parsector:char-if #'alpha-char-p))))
+   (parsector:ok kw))
+ "def ")
+;; => "def"
+
+;; (parse-string ... "define") => parser-error
+#+END_SRC
+
+* Chaining Combinators
+
+These are essential for building expression parsers with correct associativity.
+
+** ~chainl1~
+
+Parses one or more occurrences of a value parser, separated by an operator parser that returns a binary function. Values are combined left-associatively.
+
+#+BEGIN_SRC common-lisp
+(let ((add-op (parsector:progn! (parsector:char-of #\+) (parsector:ok #'+)))
+      (sub-op (parsector:progn! (parsector:char-of #\-) (parsector:ok #'-))))
+  (parse-string
+   (parsector:chainl1 (parsector:natural)
+                      (parsector:or! add-op sub-op))
+   "10+5-2"))
+;; => 13    i.e. ((10 + 5) - 2)
+#+END_SRC
+
+** ~chainl~
+
+Like ~chainl1~, but returns a default value if the value parser doesn't match at all.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:chainl (parsector:natural)
+                   (parsector:progn! (parsector:char-of #\+) (parsector:ok #'+))
+                   0)
+ "abc")
+;; => 0
+#+END_SRC
+
+** ~chainr1~
+
+Like ~chainl1~, but combines values right-associatively.
+
+#+BEGIN_SRC common-lisp
+(let ((pow-op (parsector:progn! (parsector:char-of #\^) (parsector:ok #'expt))))
+  (parse-string
+   (parsector:chainr1 (parsector:natural) pow-op)
+   "2^3^2"))
+;; => 512   i.e. 2^(3^2) = 2^9
+#+END_SRC
+
+** ~chainr~
+
+Like ~chainr1~, but returns a default value if the value parser doesn't match at all.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:chainr (parsector:natural)
+                   (parsector:progn! (parsector:char-of #\^) (parsector:ok #'expt))
+                   1)
+ "xyz")
+;; => 1
+#+END_SRC
+
+* Convenience Character Parsers
+
+** ~any-char~
+
+Parses any single character.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:any-char) "z") ;; => #\z
+#+END_SRC
+
+** ~a-space~ / ~spaces~
+
+~a-space~ parses a single whitespace character. ~spaces~ skips zero or more whitespace characters.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:a-space) " ") ;; => #\Space
+(parse-string
+ (parsector:progn! (parsector:spaces) (parsector:natural))
+ "   42")
+;; => 42
+#+END_SRC
+
+** ~newline~ / ~tab~
+
+Parse a newline or tab character respectively.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:newline) (format nil "~%")) ;; => #\Newline
+(parse-string (parsector:tab) (string #\Tab))        ;; => #\Tab
+#+END_SRC
+
+** ~upper~ / ~lower~ / ~letter~ / ~alpha-num~
+
+Parse an uppercase letter, lowercase letter, any letter, or any alphanumeric character.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:upper) "ABC")     ;; => #\A
+(parse-string (parsector:lower) "abc")     ;; => #\a
+(parse-string (parsector:letter) "xyz")    ;; => #\x
+(parse-string (parsector:alpha-num) "a1")  ;; => #\a
+#+END_SRC
+
+** ~hex-digit~ / ~oct-digit~
+
+Parse a hexadecimal or octal digit, returning its numeric value.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:hex-digit) "f") ;; => 15
+(parse-string (parsector:oct-digit) "7") ;; => 7
+#+END_SRC
+
+** ~crlf~ / ~end-of-line~
+
+~crlf~ parses a carriage-return + newline pair. ~end-of-line~ accepts either a newline or a CRLF sequence.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:end-of-line) (format nil "~%")) ;; => #\Newline
+#+END_SRC
+
+** ~sign~
+
+Parses ~+~ or ~-~.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:sign) "-42") ;; => #\-
+#+END_SRC
+
+* Numeric Parsers
+
+** ~digit~
+
+Parses a single digit and returns its numeric value. Accepts an optional radix (default 10).
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:digit) "7")      ;; => 7
+(parse-string (parsector:digit 16) "f")   ;; => 15
+#+END_SRC
+
+** ~natural~
+
+Parses a natural (non-negative) number. Accepts an optional radix.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:natural) "42abc")    ;; => 42
+(parse-string (parsector:natural 16) "ff")    ;; => 255
+#+END_SRC
+
+** ~an-integer~
+
+Parses a signed integer (optional sign followed by digits).
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:an-integer) "-42") ;; => -42
+(parse-string (parsector:an-integer) "+7")  ;; => 7
+(parse-string (parsector:an-integer) "99")  ;; => 99
+#+END_SRC
+
+** ~a-float~
+
+Parses a floating-point number (requires either a decimal point or exponent).
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:a-float) "3.14")     ;; => 3.14
+(parse-string (parsector:a-float) "-2.5e10")  ;; => -2.5e10
+(parse-string (parsector:a-float) "1e3")      ;; => 1000.0
+#+END_SRC
+
+* Error Labeling
+
+** ~label~
+
+Replaces the expected-value message on empty failure. Equivalent to Parsec's ~<?>~ operator.
+
+#+BEGIN_SRC common-lisp
+(handler-case
+    (parse-string (parsector:label (parsector:letter) "a variable name") "123")
+  (parsector:parser-error (e) (parsector:parser-error-expected e)))
+;; => "a variable name"
+#+END_SRC
+
+** ~unexpected~
+
+Always fails with an "unexpected" message. Used to report what was found rather than what was expected.
+
+#+BEGIN_SRC common-lisp
+(handler-case
+    (parse-string (parsector:unexpected "end of file") "abc")
+  (parsector:parser-error (e) (parsector:parser-error-expected e)))
+;; => "unexpected end of file"
+#+END_SRC
+
+** ~option~
+
+Like ~optional~, but returns a user-specified default value instead of ~NIL~ on failure.
+
+#+BEGIN_SRC common-lisp
+(parse-string (parsector:option 0 (parsector:natural)) "abc") ;; => 0
+(parse-string (parsector:option 0 (parsector:natural)) "42")  ;; => 42
+#+END_SRC
+
+* Parser State Access
+
+** ~get-line~ / ~get-column~ / ~get-position~
+
+Return parsers that report the current stream position without consuming input.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:let! ((_ (parsector:string-of "hello"))
+                  (_ (parsector:newline))
+                  (line (parsector:get-line))
+                  (col (parsector:get-column)))
+   (parsector:ok (list :line line :col col)))
+ (format nil "hello~%world"))
+;; => (:LINE 2 :COL 0)
+
+;; get-position returns (file-position line column)
+(parse-string (parsector:get-position) "abc") ;; => (0 1 0)
+#+END_SRC
+
+** ~get-input~
+
+Returns the underlying stream object. Useful for advanced stream manipulation.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:let! ((s (parsector:get-input)))
+   (parsector:ok (type-of s)))
+ "abc")
+;; => SB-IMPL::STRING-INPUT-STREAM  (or similar)
+#+END_SRC
+
+* Defining Named Parsers
+
+** ~defparser~
+
+Defines a parser as a named function that can be referenced as a function designator (symbol). Automatically adds error trace information with the parser's name, line, and column to failure reports.
+
+#+BEGIN_SRC common-lisp
+(parsector:defparser my-identifier ()
+  (parsector:let! ((first (parsector:letter))
+                   (rest (parsector:collect-into-string
+                          (parsector:collect (parsector:alpha-num)))))
+    (parsector:ok (concatenate 'string (string first) rest))))
+
+;; Use as a symbol designator in other parsers:
+(parsector:let! ((id 'my-identifier))
+  (parsector:ok id))
+#+END_SRC
+
+When a parser defined with ~defparser~ fails, the error trace includes its name, making debugging much easier.
+
+* Expression Parser
+
+** ~build-expression-parser~
+
+Builds a complete expression parser from an operator table and a term parser, handling precedence and associativity automatically.
+
+Operators are defined with:
+- ~(infix parser assoc)~ --- binary infix operator
+- ~(prefix parser)~ --- unary prefix operator
+- ~(postfix parser)~ --- unary postfix operator
+
+Associativity is specified with ~(assoc-left)~, ~(assoc-right)~, or ~(assoc-none)~.
+
+The operator table is a list of lists, ordered from *highest to lowest precedence*. Each inner list contains operators at the same precedence level.
+
+#+BEGIN_SRC common-lisp
+(defun ws () (parsector:skip-many (parsector:char-of #\Space)))
+
+(defun make-calc-parser ()
+  (let* ((num (parsector:let! ((_ (ws)) (n (parsector:natural)) (_ (ws)))
+                (parsector:ok n)))
+         (neg (parsector:prefix
+               (parsector:progn! (parsector:char-of #\-) (ws)
+                                 (parsector:ok (lambda (x) (- x))))))
+         (mul (parsector:infix
+               (parsector:progn! (parsector:char-of #\*) (ws) (parsector:ok #'*))
+               (parsector:assoc-left)))
+         (div (parsector:infix
+               (parsector:progn! (parsector:char-of #\/) (ws) (parsector:ok #'truncate))
+               (parsector:assoc-left)))
+         (add (parsector:infix
+               (parsector:progn! (parsector:char-of #\+) (ws) (parsector:ok #'+))
+               (parsector:assoc-left)))
+         (sub (parsector:infix
+               (parsector:progn! (parsector:char-of #\-) (ws) (parsector:ok #'-))
+               (parsector:assoc-left))))
+    (parsector:build-expression-parser
+     (list (list neg)              ; highest precedence: unary minus
+           (list mul div)          ; multiplication and division
+           (list add sub))         ; lowest precedence: addition and subtraction
+     num)))
+
+(parse-string (make-calc-parser) "2 + 3 * 4")   ;; => 14  (not 20)
+(parse-string (make-calc-parser) "-5 + 3")       ;; => -2
+#+END_SRC
+
+* Token/Lexer Support
+
+** ~make-language-def~ / ~make-token-parser~
+
+For languages with whitespace-separated tokens, comments, reserved words, and operators, the token parser framework generates a complete set of lexer-level parsers from a language definition.
+
+#+BEGIN_SRC common-lisp
+(defparameter *my-lang*
+  (parsector:make-language-def
+   :comment-line "//"
+   :comment-start "/*"
+   :comment-end "*/"
+   :ident-start (parsector:letter)
+   :ident-letter (parsector:or! (parsector:alpha-num) (parsector:char-of #\_))
+   :op-start (parsector:char-in "+-*/=<>!")
+   :op-letter (parsector:char-in "+-*/=<>!")
+   :reserved-names '("if" "else" "while" "return")
+   :reserved-op-names '("==" "!=" "<=" ">=")))
+
+(defparameter *tp* (parsector:make-token-parser *my-lang*))
+
+;; Use individual token parsers:
+(parse-string (parsector:token-parser-identifier *tp*) "myVar ")     ;; => "myVar"
+(parse-string (funcall (parsector:token-parser-reserved *tp*) "if") "if ") ;; => "if"
+(parse-string (parsector:token-parser-natural *tp*) "42 ")           ;; => 42
+(parse-string (parsector:token-parser-string-literal *tp*) "\"hello\" ") ;; => "hello"
+(parse-string (parsector:token-parser-char-literal *tp*) "'a' ")     ;; => #\a
+(parse-string (funcall (parsector:token-parser-parens *tp*)
+                       (parsector:token-parser-natural *tp*))
+              "( 42 )")
+;; => 42
+
+;; Token parsers automatically skip whitespace and comments
+(parse-string (parsector:token-parser-natural *tp*) "/* comment */ 42 ") ;; => 42
+#+END_SRC
+
+** ~deftoken~
+
+Convenience macro for binding token parser accessors to functions.
+
+#+BEGIN_SRC common-lisp
+(parsector:deftoken identifier *tp* parsector:token-parser-identifier)
+(parsector:deftoken my-natural *tp* parsector:token-parser-natural)
+
+(parse-string (identifier) "fooBar ")  ;; => "fooBar"
+(parse-string (my-natural) "99 ")      ;; => 99
+#+END_SRC
+
+Available token parser accessors: ~token-parser-identifier~, ~token-parser-reserved~, ~token-parser-operator~, ~token-parser-reserved-op~, ~token-parser-char-literal~, ~token-parser-string-literal~, ~token-parser-natural~, ~token-parser-integer~, ~token-parser-float~, ~token-parser-natural-or-float~, ~token-parser-decimal~, ~token-parser-hexadecimal~, ~token-parser-octal~, ~token-parser-symbol~, ~token-parser-lexeme~, ~token-parser-white-space~, ~token-parser-parens~, ~token-parser-braces~, ~token-parser-angles~, ~token-parser-brackets~, ~token-parser-semi~, ~token-parser-comma~, ~token-parser-colon~, ~token-parser-dot~, ~token-parser-semi-sep~, ~token-parser-semi-sep1~, ~token-parser-comma-sep~, ~token-parser-comma-sep1~.
+
+* Permutation Parsing
+
+** ~permute~ / ~perm-req~ / ~perm-opt~
+
+Parses a set of elements in any order. Each element is either required (~perm-req~) or optional with a default value (~perm-opt~). Returns results in the order the elements were specified, regardless of parse order.
+
+#+BEGIN_SRC common-lisp
+;; Parse a name (required), age (optional, default 0), and id (required) in any order
+(let* ((name-p (parsector:prog2! (parsector:string-of "name=")
+                                 (parsector:collect-into-string
+                                  (parsector:collect (parsector:letter)))
+                                 (parsector:optional (parsector:char-of #\,))))
+       (age-p  (parsector:prog2! (parsector:string-of "age=")
+                                 (parsector:natural)
+                                 (parsector:optional (parsector:char-of #\,))))
+       (id-p   (parsector:prog2! (parsector:string-of "id=")
+                                 (parsector:natural)
+                                 (parsector:optional (parsector:char-of #\,)))))
+  (parse-string
+   (parsector:permute (parsector:perm-req name-p)
+                      (parsector:perm-opt 0 age-p)
+                      (parsector:perm-req id-p))
+   "id=7,name=Alice"))
+;; => ("Alice" 0 7)
+;; Note: age used its default (0), and id came before name in the input
+#+END_SRC
+
+* Debugging
+
+** ~parser-trace~
+
+Inserts a trace point that prints the current parse position and next character to ~*trace-output*~. Always succeeds without consuming input.
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:progn! (parsector:string-of "ab")
+                   (parsector:parser-trace "after-ab")
+                   (parsector:string-of "cd"))
+ "abcd")
+;; Prints to *trace-output*:
+;;   [after-ab] line 1, column 2: next char = #\c
+;; => "cd"
+#+END_SRC
+
+** ~parser-traced~
+
+Wraps a parser to trace its entry and exit (success or failure).
+
+#+BEGIN_SRC common-lisp
+(parse-string
+ (parsector:parser-traced "digit" (parsector:digit))
+ "7")
+;; Prints to *trace-output*:
+;;   [digit] entering at line 1, column 0
+;;   [digit] succeeded (consumed) with 7
+;; => 7
+#+END_SRC
+
+* Error Handling
+
+** ~parser-error~ condition
+
+When ~parse~ encounters a failure, it signals a ~parser-error~ condition (a subtype of ~stream-error~) with the following readers:
+
+- ~parser-error-line~ --- the 1-based line number where the failure occurred
+- ~parser-error-column~ --- the 0-based column number
+- ~parser-error-expected~ --- what the parser expected (string or list of strings)
+- ~parser-error-return-trace~ --- a list of ~(name line column)~ entries showing the parser call stack (populated by ~defparser~)
+
+#+BEGIN_SRC common-lisp
+(handler-case
+    (parse-string (parsector:natural) "abc")
+  (parsector:parser-error (e)
+    (format t "Error at ~D:~D, expected ~A~%"
+            (parsector:parser-error-line e)
+            (parsector:parser-error-column e)
+            (parsector:parser-error-expected e))))
+;; Prints: Error at 1:0, expected Satisfies DIGIT-CHAR-P
+#+END_SRC
+
+* Four-Track Failure Model
+
+Understanding Parsector's four continuations is key to effective error recovery:
+
+| Continuation | Consumed Input? | Succeeded? | Description                        |
+|--------------+-----------------+------------+------------------------------------|
+| eok          | No              | Yes        | Empty success (e.g., ~ok~, ~eof~)  |
+| cok          | Yes             | Yes        | Consumed success (e.g., ~char-of~) |
+| efail        | No              | No         | Empty failure (recoverable)        |
+| cfail        | Yes             | No         | Consumed failure (hard error)      |
+
+- ~or!~ only recovers from empty failures (efail). If a parser has consumed input before failing (cfail), the error propagates.
+- ~try!~ converts consumed failures to empty failures by rewinding the stream, enabling backtracking.
+- ~handle~ catches empty failures. ~handle-rewind~ catches both empty and consumed failures.
+
+This design means that once a parser commits to a branch (consumes input), alternatives are not tried unless explicitly wrapped with ~try!~. This gives better error messages: the parser reports what it expected at the point of failure rather than trying every possible alternative.
