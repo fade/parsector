@@ -4,12 +4,12 @@
 ;;; BSD-3-Clause
 ;;;
 ;;; This example demonstrates a more complex parser for the M3U playlist format,
-;;; showcasing a wide range of `parsnip` combinators, including the newly added
+;;; showcasing a wide range of `parsector` combinators, including the newly added
 ;;; ones for expression parsing, lookahead, and optional parsing.
 
-(defpackage #:xyz.shunter.parsnip.examples.m3u
+(defpackage #:parsector/examples/m3u
   (:nicknames #:m3u)
-  (:use #:cl #:parsnip)
+  (:use #:cl #:parsector)
   (:export #:parse-m3u
            #:parse-m3u-file
            #:m3u-playlist
@@ -20,7 +20,7 @@
            #:m3u-track-title
            #:m3u-track-path))
 
-(in-package #:xyz.shunter.parsnip.examples.m3u)
+(in-package #:parsector/examples/m3u)
 
 ;;; --- Data Structures ---
 

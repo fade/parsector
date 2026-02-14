@@ -1,17 +1,16 @@
-;;; test-parsec.lisp - Tests for Parsec-compatible combinators
+;;; test/parsec.lisp - Tests for Parsec-compatible combinators
 
 ;;; Copyright 2021 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(in-package #:cl-user)
-(defpackage #:xyz.shunter.parsnip.test-parsec
+(defpackage #:parsector/test/parsec
   (:use #:cl
-        #:xyz.shunter.parsnip
+        #:parsector
         #:parachute)
-  (:shadowing-import-from #:parachute #:fail #:skip)
-  (:nicknames #:parsnip/test-parsec))
-(in-package #:xyz.shunter.parsnip.test-parsec)
+  (:shadowing-import-from #:parachute #:fail #:skip))
+
+(in-package #:parsector/test/parsec)
 
 (defun parse-string (parser string)
   (with-input-from-string (stream string)

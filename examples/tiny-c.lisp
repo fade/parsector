@@ -1,16 +1,16 @@
-;;; tiny-c.lisp - Parsnip example tiny C parser
+;;; examples/tiny-c.lisp - Parsector example tiny C parser
 
 ;;; Copyright 2022 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; BSD-3-Clause
 
-(defpackage #:xyz.shunter.parsnip.examples.tiny-c
-  (:documentation "Parsnip example tiny C parser")
-  (:use #:cl #:xyz.shunter.parsnip)
+(defpackage #:parsector/examples/tiny-c
+  (:documentation "Parsector example tiny C parser")
+  (:use #:cl #:parsector)
   (:export
     #:parse-tiny-c
     #:parse-tiny-c-from-string))
 
-(in-package #:xyz.shunter.parsnip.examples.tiny-c)
+(in-package #:parsector/examples/tiny-c)
 
 
 

@@ -1,16 +1,16 @@
-;;; json.lisp - Parsnip example JSON decoder
+;;; examples/json.lisp - Parsector example JSON decoder
 
 ;;; Copyright 2021 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; Additions by Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:xyz.shunter.parsnip.examples.json
-  (:documentation "Parsnip example JSON decoder using a token parser.")
-  (:use #:cl #:xyz.shunter.parsnip)
+(defpackage #:parsector/examples/json
+  (:documentation "Parsector example JSON decoder using a token parser.")
+  (:use #:cl #:parsector)
   (:export #:decode-json
            #:decode-json-from-string))
 
-(in-package #:xyz.shunter.parsnip.examples.json)
+(in-package #:parsector/examples/json)
 
 (defparameter *json-language-def*
   (make-language-def

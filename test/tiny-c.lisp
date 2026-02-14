@@ -1,10 +1,10 @@
-;;; test-tiny-c.lisp - Tests for the tiny-c parser example
+;;; test/tiny-c.lisp - Tests for the tiny-c parser example
 
-(defpackage #:xyz.shunter.parsnip.test-tiny-c
+(defpackage #:parsector/test/tiny-c
   (:use #:cl #:parachute)
-  (:local-nicknames (#:tc #:xyz.shunter.parsnip.examples.tiny-c)))
+  (:local-nicknames (#:tc #:parsector/examples/tiny-c)))
 
-(in-package #:xyz.shunter.parsnip.test-tiny-c)
+(in-package #:parsector/test/tiny-c)
 
 (define-test tiny-c-parser
   :parent NIL)
@@ -95,7 +95,7 @@
 
 (define-test full-tiny-c-file
   :parent tiny-c-parser
-  (let* ((file-path (asdf:system-relative-pathname :parsnip/examples
+  (let* ((file-path (asdf:system-relative-pathname :parsector
                                                     "examples/tiny-c.c"))
          (result (with-open-file (s file-path)
                    (tc:parse-tiny-c s))))

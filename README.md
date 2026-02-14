@@ -1,42 +1,29 @@
-# Parsnip
-[![builds.sr.ht status](https://builds.sr.ht/~shunter/parsnip/commits/test.yml.svg)](https://builds.sr.ht/~shunter/parsnip/commits/test.yml)
+# Parsector
 
-![The library brand image: a crudely drawn parsnip surrounded by parentheses](./brand.png)
+Monadic parser combinator library for Common Lisp.
 
-Monadic parser combinator library.
+Parsector is a fork of [Parsnip](https://sr.ht/~shunter/parsnip/) by Samuel Hunter, extended with Parsec-compatible combinators, an expression parser, token/lexer framework, permutation parsing, and debugging tools.
 
-Conventional parsers are modeled as a two-stage process: a scanner that takes characters and produce tokens, and a parser that takes tokens and produce syntax trees.
-Monadic parsers instead model parsers as smaller parsers that can compose together, much like the procedures of a conventional program.
-
-Other parser combinator libraries I've found for Common Lisp are either too macro-heavy for me, or warn that they are not production-ready.
-I don't trust third-party libraries that don't trust themselves, and so I've made my own, going for a simple interface targeted for public consumption.
-
-Parsnip targets user-facing compilers, interpreters, or other readers of character-based languages, where programs would like to recover from or give insight about parser errors.
-Parsnip does **not** target performance-intensive or byte-based decoders, such as those used in network stacks, or JSON/XML decoders for request data for high-performance web applications.
+Parsector targets user-facing compilers, interpreters, or other readers of character-based languages, where programs would like to recover from or give insight about parser errors.
+Parsector does **not** target performance-intensive or byte-based decoders, such as those used in network stacks, or JSON/XML decoders for request data for high-performance web applications.
 
 ## Contributions
 
 Any comments, questions, issues, or patches are greatly appreciated!
-I do my main development on [Sourcehut](https://sr.ht/~shunter/parsnip/), with a [mailing list](https://lists.sr.ht/~shunter/public-inbox) and [issue tracker](https://todo.sr.ht/~shunter/parsnip).
+Please use the [GitHub issue tracker](https://github.com/fade/parsector/issues).
 
 ## Usage
 
-Parsnip is available on Quicklisp:
-```lisp
-(ql:quickload :parsnip)
-```
-
-Parsnip can also be installed locally.
-Make sure to also install the sole dependency Alexandria:
+Parsector can be installed locally:
 
 ```sh
 $ cd ~/common-lisp/ # Or wherever you store your definitions
-$ git clone https://git.sr.ht/~shunter/parsnip
+$ git clone https://github.com/fade/parsector.git
 ```
 
 ```lisp
-(require :parsnip)
-(use-package :parsnip)
+(require :parsector)
+(use-package :parsector)
 
 ;; digit := [0-9]
 (defparser one-digit ()
@@ -69,10 +56,10 @@ $ git clone https://git.sr.ht/~shunter/parsnip
 (parse-from-string 'decimal-number "123.47") ;; => 12347/100
 ```
 
-Parsnip aims to provide rich information for parsers aimed at end-users:
+Parsector aims to provide rich information for parsers aimed at end-users:
 
 ```
-(use-package :xyz.shunter.parsnip.examples.json)
+(use-package :parsector/examples/json)
 
 ;; bad.json: [10,20,,]
 (with-open-file (s "/tmp/bad.json")
@@ -94,14 +81,14 @@ Parsnip aims to provide rich information for parsers aimed at end-users:
     (format t "~A~%" c)
     (parser-error-return-trace c)))
 NIL:1:20: Expected #\" on #<STRING-INPUT-STREAM>
-((xyz.shunter.parsnip.examples.json::value 1 0)
- (xyz.shunter.parsnip.examples.json::json-array 1 0)
- (xyz.shunter.parsnip.examples.json::value 1 7)
- (xyz.shunter.parsnip.examples.json::json-object 1 7)
- (xyz.shunter.parsnip.examples.json::json-string 1 20))
+((parsector/examples/json::value 1 0)
+ (parsector/examples/json::json-array 1 0)
+ (parsector/examples/json::value 1 7)
+ (parsector/examples/json::json-object 1 7)
+ (parsector/examples/json::json-string 1 20))
 ```
 
-The [test suite](./test.lisp) shows how each function works, and how it's expected to perform.
+The [test suite](./test/package.lisp) shows how each function works, and how it's expected to perform.
 
 ## Is this Production-ready?
 
@@ -150,6 +137,8 @@ Outside of a couple outliers (e.g. the value definition is moved to the end), th
 
 The [Tiny C example](./examples/tiny-c.lisp) is an extremely bare-bones subset of C, with a single primitive integer type and limited mechanisms.
 It demonstrates an example of what patterns can be used to parse C-family grammars with parser combinators.
+
+The [M3U example](./examples/m3u.lisp) demonstrates a more complex parser for the M3U playlist format, showcasing expression parsing, lookahead, and optional parsing.
 
 ## Concepts
 

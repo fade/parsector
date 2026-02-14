@@ -1,12 +1,10 @@
 image: alpine/edge
 environment:
-  mirror: git@github.com:samuel-hunter/parsnip.git
+  mirror: git@github.com:fade/parsector.git
   GIT_SSH_COMMAND: ssh -o StrictHostKeyChecking=no
-secrets:
--  cba0daaf-67e0-41ee-825b-a467489f5c3d
 sources:
-- https://git.sr.ht/~shunter/parsnip
+- https://github.com/fade/parsector
 tasks:
 - updatemirror: |
-    cd parsnip
+    cd parsector
     git push --mirror "$mirror"

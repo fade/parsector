@@ -6,16 +6,16 @@ environment:
 packages:
 - wget
 sources:
-- https://git.sr.ht/~shunter/parsnip
+- https://github.com/fade/parsector
 tasks:
 - install-roswell: |
     wget --no-verbose -O- https://github.com/roswell/roswell/releases/download/v$ROSWELL_RELEASE/roswell-$ROSWELL_RELEASE-linux-x86_64.tar.bz2 | tar -jx
     PATH=~/roswell:$PATH
 
-    # Register parsnip with ASDF
+    # Register parsector with ASDF
     ASDF_REG_CONF_DIR=~/.config/common-lisp/source-registry.conf.d
     mkdir -p $ASDF_REG_CONF_DIR
-    echo "(:tree \"$HOME/parsnip\")" > $ASDF_REG_CONF_DIR/ci.conf
+    echo "(:tree \"$HOME/parsector\")" > $ASDF_REG_CONF_DIR/ci.conf
 
     # Use lisp impl and print configuration
     ros install sbcl-bin
@@ -25,18 +25,18 @@ tasks:
 - build: |
     PATH=~/roswell:$PATH
     # Fetch deps
-    ros --eval '(ql:quickload :parsnip/test)'
+    ros --eval '(ql:quickload :parsector/test/all)'
 - test-sbcl: |
     PATH=~/roswell:$PATH
     ros use sbcl-bin
-    ros --system parachute --system parsnip/test \
-      --eval '(setf *debugger-hook* (lambda (e h) (print e) (uiop:quit 1))) (parachute:test-toplevel :xyz.shunter.parsnip.test)'
+    ros --system parachute --system parsector/test/all \
+      --eval '(setf *debugger-hook* (lambda (e h) (print e) (uiop:quit 1))) (parachute:test-toplevel :parsector/test)'
 - test-ccl: |
     PATH=~/roswell:$PATH
     ros use ccl-bin
-    ros --system parachute --system parsnip/test \
-      --eval '(setf *debugger-hook* (lambda (e h) (print e) (uiop:quit 1))) (parachute:test-toplevel :xyz.shunter.parsnip.test)'
+    ros --system parachute --system parsector/test/all \
+      --eval '(setf *debugger-hook* (lambda (e h) (print e) (uiop:quit 1))) (parachute:test-toplevel :parsector/test)'
 triggers:
 - action: email
   condition: failure
-  to: builds@shunter.xyz
+  to: fade@deepsky.com

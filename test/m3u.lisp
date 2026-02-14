@@ -1,10 +1,10 @@
-;;; test-m3u.lisp - Tests for the M3U playlist parser example
+;;; test/m3u.lisp - Tests for the M3U playlist parser example
 
-(defpackage #:xyz.shunter.parsnip.test-m3u
+(defpackage #:parsector/test/m3u
   (:use #:cl #:parachute)
-  (:local-nicknames (#:m3u #:xyz.shunter.parsnip.examples.m3u)))
+  (:local-nicknames (#:m3u #:parsector/examples/m3u)))
 
-(in-package #:xyz.shunter.parsnip.test-m3u)
+(in-package #:parsector/test/m3u)
 
 (define-test m3u-parser
   :parent NIL)
@@ -104,7 +104,7 @@
 
 (define-test underworld-playlist-file
   :parent m3u-parser
-  (let* ((file-path (asdf:system-relative-pathname :parsnip/examples
+  (let* ((file-path (asdf:system-relative-pathname :parsector
                                                     "examples/underworld-and-friends.m3u"))
          (playlist (m3u:parse-m3u-file file-path)))
     ;; Check that we got a playlist

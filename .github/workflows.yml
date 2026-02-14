@@ -53,14 +53,14 @@ jobs:
         run: |
           sbcl --non-interactive \
             --eval '(push (truename ".") asdf:*central-registry*)' \
-            --eval '(ql:quickload :parsnip/test-all)' \
-            --eval '(asdf:test-system :parsnip/test-all)'
+            --eval '(ql:quickload :parsector/test/all)' \
+            --eval '(asdf:test-system :parsector/test/all)'
 
       - name: Run All Tests (CCL)
         if: matrix.lisp == 'ccl'
         run: |
           ccl --batch \
             --eval '(push (truename ".") asdf:*central-registry*)' \
-            --eval '(ql:quickload :parsnip/test-all)' \
-            --eval '(asdf:test-system :parsnip/test-all)' \
+            --eval '(ql:quickload :parsector/test/all)' \
+            --eval '(asdf:test-system :parsector/test/all)' \
             --eval '(ccl:quit)'

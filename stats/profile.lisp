@@ -4,18 +4,18 @@
 ;;; BSD-3-Clause
 
 (require :sb-sprof)
-(require :parsnip/examples)
+(require :parsector/examples/json)
 
-(defpackage #:xyz.shunter.parsnip.profile
-  (:use #:cl #:xyz.shunter.parsnip.examples.json))
+(defpackage #:parsector/stats/profile
+  (:use #:cl #:parsector/examples/json))
 
-(in-package #:xyz.shunter.parsnip.profile)
+(in-package #:parsector/stats/profile)
 
 
 
 (defparameter +large-json-path+
   (merge-pathnames #P"stats/large.json"
-                   (asdf:system-source-directory :parsnip)))
+                   (asdf:system-source-directory :parsector)))
 
 (defun process-large-file ()
   (with-open-file (stream +large-json-path+)

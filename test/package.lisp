@@ -1,17 +1,17 @@
-;;; test.lisp - Parsnip library test suite
+;;; test/package.lisp - Parsector library test suite
 
 ;;; Copyright 2021 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:xyz.shunter.parsnip.test
+(defpackage #:parsector/test
   (:use #:cl
-        #:xyz.shunter.parsnip)
+        #:parsector)
   (:import-from #:alexandria
                 #:curry)
   (:local-nicknames (#:t #:parachute)))
 
-(in-package #:xyz.shunter.parsnip.test)
+(in-package #:parsector/test)
 
 
 

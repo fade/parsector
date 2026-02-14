@@ -1,0 +1,141 @@
+#+TITLE: Parsector Library - Overview of New Combinators
+#+AUTHOR: Brian O'Reilly
+
+* Introduction
+
+This document provides an overview and idiomatic usage examples for the newly added monadic parser combinators in the Parsector library. These combinators extend Parsector's capabilities, offering more powerful and expressive ways to build parsers for complex grammars, inspired by established libraries like Haskell's Parsec.
+
+For a deeper understanding of Parsector's core concepts (like monadic parsers, continuations, and the four-track failure model), please refer to the main library documentation.
+
+* New Combinators
+
+** 1. ~choice~
+
+~choice~ attempts to parse with a list of parsers, succeeding with the first one that successfully parses. It is a convenience wrapper around ~or!~.
+
+#+BEGIN_SRC common-lisp
+(defun digit-char-parser ()
+  (parsector:char-if #'digit-char-p))
+
+(defun letter-char-parser ()
+  (parsector:char-if #'alpha-char-p))
+
+(defun alpha-numeric-parser ()
+  "Parses either a letter or a digit."
+  (parsector:choice (list (letter-char-parser)
+                        (digit-char-parser))))
+
+;; Example Usage:
+;; (parsector:parse (alpha-numeric-parser) (make-string-input-stream "a")) ; => #\a
+;; (parsector:parse (alpha-numeric-parser) (make-string-input-stream "1")) ; => #\1
+;; (handler-case (parsector:parse (alpha-numeric-parser) (make-string-input-stream "@"))
+;;   (parsector:parser-error () :fail)) ; => :fail
+#+END_SRC
+
+** 2. ~many-till~
+
+~many-till parser end~ applies ~parser~ zero or more times until the ~end~ parser successfully parses. It returns a list of results from ~parser~. The result of the ~end~ parser is discarded.
+
+#+BEGIN_SRC common-lisp
+(defun char-a-parser () (parsector:char-of #\a))
+(defun char-b-parser () (parsector:char-of #\b))
+
+(defun until-b-parser ()
+  "Parses zero or more 'a's until a 'b' is encountered."
+  (parsector:many-till (char-a-parser) (char-b-parser)))
+
+;; Example Usage:
+;; (parsector:parse (until-b-parser) (make-string-input-stream "aaab")) ; => '(#\a #\a #\a)
+;; (parsector:parse (until-b-parser) (make-string-input-stream "b"))    ; => '()
+#+END_SRC
+
+** 3. ~optional~
+
+~optional parser~ attempts to apply ~parser~. If ~parser~ succeeds, its result is returned. If ~parser~ fails (without consuming input, thanks to ~try!~), ~nil~ is returned instead, and no input is consumed.
+
+#+BEGIN_SRC common-lisp
+(defun optional-hello-parser ()
+  "Optionally parses the string 'hello'."
+  (parsector:optional (parsector:string-of "hello")))
+
+;; Example Usage:
+;; (parsector:parse (optional-hello-parser) (make-string-input-stream "hello")) ; => "hello"
+;; (parsector:parse (optional-hello-parser) (make-string-input-stream "world")) ; => NIL
+#+END_SRC
+
+** 4. ~lookahead~
+
+~lookahead parser~ runs ~parser~, but always rewinds the input stream afterwards. It returns the result of ~parser~ if successful. It's useful for checking if a certain pattern is present without consuming the input. Requires a seekable stream.
+
+#+BEGIN_SRC common-lisp
+(defun check-abc-then-parse-x-parser ()
+  "Checks for 'abc' then parses 'x'. 'abc' is not consumed by lookahead."
+  (parsector:let! ((_ (parsector:lookahead (parsector:string-of "abc")))
+                 (res (parsector:char-of #\x)))
+    (declare (ignore _)) ; Ignore the result of lookahead as it's just a check
+    (parsector:ok res)))
+
+;; Example Usage:
+;; (parsector:parse (check-abc-then-parse-x-parser) (make-string-input-stream "x")) ; => #\x
+;; (handler-case (parsector:parse (check-abc-then-parse-x-parser) (make-string-input-stream "abc"))
+;;   (parsector:parser-error () :fail)) ; => :fail (because 'x' is not found)
+#+END_SRC
+
+** 5. ~not-followed-by~
+
+~not-followed-by parser~ succeeds if ~parser~ fails, and fails if ~parser~ succeeds. In either case, it never consumes any input. This is useful for negative lookaheads, e.g., to ensure a keyword is not followed by an identifier character. Requires a seekable stream.
+
+#+BEGIN_SRC common-lisp
+(defun keyword-if-not-alpha-parser ()
+  "Parses 'def' only if it's not followed by a letter."
+  (parsector:let! ((kw (parsector:string-of "def"))
+                 (_ (parsector:not-followed-by (parsector:char-if #'alpha-char-p))))
+    (declare (ignore _))
+    (parsector:ok kw)))
+
+;; Example Usage:
+;; (parsector:parse (keyword-if-not-alpha-parser) (make-string-input-stream "def ")) ; => "def"
+;; (handler-case (parsector:parse (keyword-if-not-alpha-parser) (make-string-input-stream "defvar"))
+;;   (parsector:parser-error () :fail)) ; => :fail
+#+END_SRC
+
+** 6. ~chainl1~
+
+~chainl1 p op~ parses one or more occurrences of ~p~, separated by ~op~. It returns a single value obtained by applying the functions returned by ~op~ left-associatively to the values returned by ~p~. ~p~ should return values, and ~op~ should return functions that take two values and return a new value (e.g., `(lambda (a b) (+ a b))`).
+
+#+BEGIN_SRC common-lisp
+(defun integer-parser ()
+  (parsector:natural))
+
+(defun plus-op-parser ()
+  (parsector:prog2! (parsector:char-of #\+) (parsector:ok #'+))) ; Returns the '+' function
+
+(defun subtract-op-parser ()
+  (parsector:prog2! (parsector:char-of #\-) (parsector:ok #'-))) ; Returns the '-' function
+
+(defun left-associative-add-sub-parser ()
+  "Parses a sequence of numbers with '+' or '-' operators, evaluated left-associatively."
+  (parsector:chainl1 (integer-parser)
+                   (parsector:choice (list (plus-op-parser)
+                                         (subtract-op-parser)))))
+
+;; Example Usage:
+;; (parsector:parse (left-associative-add-sub-parser) (make-string-input-stream "10+5-2")) ; => 13  ( (10 + 5) - 2 )
+#+END_SRC
+
+** 7. ~chainr1~
+
+~chainr1 p op~ parses one or more occurrences of ~p~, separated by ~op~. It returns a single value obtained by applying the functions returned by ~op~ right-associatively to the values returned by ~p~. ~p~ should return values, and ~op~ should return functions that take two values and return a new value.
+
+#+BEGIN_SRC common-lisp
+(defun power-op-parser ()
+  (parsector:prog2! (parsector:char-of #\^) (parsector:ok #'expt))) ; Returns the 'expt' function
+
+(defun right-associative-power-parser ()
+  "Parses a sequence of numbers with '^' operator, evaluated right-associatively."
+  (parsector:chainr1 (integer-parser)
+                   (power-op-parser)))
+
+;; Example Usage:
+;; (parsector:parse (right-associative-power-parser) (make-string-input-stream "2^3^2")) ; => 512 ( 2 ^ (3 ^ 2) )
+#+END_SRC

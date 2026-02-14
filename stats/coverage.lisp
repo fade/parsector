@@ -2,21 +2,21 @@
 
 (require :sb-cover)
 
-(defpackage #:xyz.shunter.parsnip.coverage
+(defpackage #:parsector/stats/coverage
   (:use #:cl)
   (:export #:report))
 
-(in-package #:xyz.shunter.parsnip.coverage)
+(in-package #:parsector/stats/coverage)
 
 
 
 (defun report (directory)
   (declaim (optimize sb-cover:store-coverage-data))
-  (asdf:oos 'asdf:load-op :parsnip :force t)
-  (asdf:oos 'asdf:load-op :parsnip :force t)
-  (asdf:test-system :parsnip)
+  (asdf:oos 'asdf:load-op :parsector :force t)
+  (asdf:oos 'asdf:load-op :parsector :force t)
+  (asdf:test-system :parsector)
   (prog1
     (sb-cover:report directory )
     (declaim (optimize (sb-cover:store-coverage-data 0)))))
 
-(report #P"/tmp/parsnip-coverage/")
+(report #P"/tmp/parsector-coverage/")

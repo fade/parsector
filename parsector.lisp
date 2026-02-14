@@ -1,12 +1,12 @@
-;;; parsnip.lisp - Parsnip library implementation
+;;; parsector.lisp - Parsector library implementation
 
 ;;; Copyright 2021 Samuel Hunter <samuel (at) shunter (dot) xyz>
 ;;; Copyright 2026 Brian O'Reilly <fade@deepsky.com>
 ;;; BSD-3-Clause
 
-(defpackage #:xyz.shunter.parsnip
+(defpackage #:parsector
   (:documentation "Monadic parser combinator library")
-  (:nicknames #:parsnip)
+  (:nicknames #:parsector)
   (:use #:cl)
   (:import-from #:alexandria
                 #:curry
@@ -153,7 +153,7 @@
            #:parser-trace
            #:parser-traced))
 
-(in-package #:xyz.shunter.parsnip)
+(in-package #:parsector)
 
 
 

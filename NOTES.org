@@ -1,16 +1,16 @@
-#+TITLE: Parsnip Enhancement Notes - Adding Parsec Features
+#+TITLE: Parsector Enhancement Notes - Adding Parsec Features
 #+AUTHOR: Brian O'Reilly
 #+DATE: 2026-02-01
 
 * Overview
 
-This document tracks the effort to add missing Parsec combinators and features to Parsnip.
+This document tracks the effort to add missing Parsec combinators and features to Parsector.
 
-* Comparison: Parsec vs Parsnip
+* Comparison: Parsec vs Parsector
 
-** What Parsnip Already Has (Parsec Equivalents)
+** What Parsector Already Has (Parsec Equivalents)
 
-| Parsnip         | Parsec        | Notes                    |
+| Parsector       | Parsec        | Notes                    |
 |-----------------+---------------+--------------------------|
 | ok              | return/pure   | ✓                        |
 | fail            | parserFail    | ✓                        |
@@ -55,12 +55,12 @@ This document tracks the effort to add missing Parsec combinators and features t
 | chainl1         | chainl1       | ✓                        |
 | chainr          | chainr        | ✓                        |
 | chainr1         | chainr1       | ✓                        |
-| digit           | digit         | Parsnip supports radix   |
+| digit           | digit         | Parsector supports radix |
 | natural         | (in Token)    | ✓                        |
 | an-integer      | (in Token)    | ✓                        |
 | a-float         | (in Token)    | ✓                        |
 
-** What Parsec Has That Parsnip Lacks
+** What Parsec Has That Parsector Lacks
 
 *** 1. Error Labeling (~<?>~, ~label~, ~labels~)
 Custom error messages attached to parsers. When a parser fails, the label replaces the default expected message.
@@ -81,14 +81,14 @@ option 0 number  -- Returns 0 if number fails
 Parse values separated by separator, with optional trailing separator. Handles ~a,b,c~ and ~a,b,c,~ equally.
 
 *** 5. ~skipMany1~
-Like ~skipMany~ but requires at least one match. Parsnip has ~skip-many~ but not ~skip-many1~.
+Like ~skipMany~ but requires at least one match. Parsector has ~skip-many~ but not ~skip-many1~.
 
 *** 6. ~anyToken~
 Accept any single token from the stream (generic, not just characters).
 
 *** 7. User State Management
 - ~getState~ / ~putState~ / ~modifyState~ - Thread user-defined state through parsing
-- Parsnip has no user state mechanism
+- Parsector has no user state mechanism
 
 *** 8. Parser State Access
 - ~getPosition~ / ~setPosition~ - Read/write source position
@@ -159,26 +159,24 @@ Parse elements in any order. Useful for command-line flags, XML attributes, etc.
 
 ** Test Results
 
-| Test Suite              | Tests | Status      |
-|-------------------------+-------+-------------|
-| parsnip/test            |   146 | All passing |
-| parsnip/test-json       |    22 | All passing |
-| parsnip/test-literals   |    48 | All passing |
-| parsnip/test-parsec     |    48 | All passing |
-| parsnip/test-m3u        |    26 | All passing |
-| *Total*                 | *290* | *Passing*   |
+| Test Suite               | Tests | Status      |
+|--------------------------+-------+-------------|
+| parsector/test           |   146 | All passing |
+| parsector/test/json      |    22 | All passing |
+| parsector/test/literals   |    48 | All passing |
+| parsector/test/parsec    |    48 | All passing |
+| parsector/test/m3u       |    26 | All passing |
+| *Total*                  | *290* | *Passing*   |
 
 *** Running Tests
 
 #+begin_src lisp
-(asdf:test-system :parsnip/test)
-(asdf:test-system :parsnip/test-literals)
-(asdf:test-system :parsnip/test-parsec)
+(asdf:test-system :parsector/test/all)
 #+end_src
 
-*** Test Coverage for New Features (test-parsec.lisp)
+*** Test Coverage for New Features (test/parsec.lisp)
 
-The ~parsnip/test-parsec~ system provides coverage for all new Parsec-compatible combinators:
+The ~parsector/test/parsec~ package provides coverage for all new Parsec-compatible combinators:
 
 | Feature                 | Test Name                            | What's Tested                                     |
 |-------------------------+--------------------------------------+---------------------------------------------------|
@@ -208,31 +206,26 @@ The ~parsnip/test-parsec~ system provides coverage for all new Parsec-compatible
 
 *** Caveats
 
-I have updated parsnip to bring it in-line with the facilities defined
-in the Haskell system called parsec. In doing so, I have broadened the
-surface area of parsnip, and increased the complexity in the system. I
-have endeavoured to add test coverage for all of these components, in
+I updated the original parsnip library to bring it in-line with the
+facilities defined in the Haskell system called parsec. In doing so, I
+broadened the surface area and increased the complexity in the system.
+I endeavoured to add test coverage for all of these components, in
 line with the standards defined by the base system in Samuel Hunter's
-master branch on sourcehut, but it is unclear to me how I will
-proceed. I would like to contribute the changes upstream, but I don't
-have the time to figure out how to get emacs to spit out a patch in
-unified diff format, or follow the procedure for sending this patch to
-SourceHut at the moment. Perhaps I will email Samuel Hunter and ask
-him if he would even be open to that. Regardless, all of this code is
-open source under the terms of the original license (BSD 3 Clause), so
-you may do with it what you want. My concern is that I have stretched
-the system beyond the original author's desired shape. Some of this
-was to scratch my own itch, which was parsing m3u files (an
-ill-specified format by consensus of what exists in the world) and
+master branch on sourcehut. The upstream author was unresponsive to
+contributions, so this fork has been renamed to parsector and
+restructured as a package-inferred ASDF system.
+
+Regardless, all of this code is open source under the terms of the
+original license (BSD 3 Clause), so you may do with it what you want.
+Some of this was to scratch my own itch, which was parsing m3u files
+(an ill-specified format by consensus of what exists in the world) and
 partly to bootstrap my own understanding of parser/combinators. In
 pursuit of the later, almost all of the pedagogy that I found was
 written in the terms of Haskell in general and Parsec in particular,
-so I extended parsnip to match parsec (as much as possible) as I went,
-such that my excercise solutions would at least match the source
+so I extended the library to match parsec (as much as possible) as I
+went, such that my excercise solutions would at least match the source
 material. I believe this has resulted in a system with more
 convenience and utility, but obviously all of the exciting new bugs
-are my own. Probably you shouldn't bother Samuel Hunter about them.
-Send issues/patch requests/messages via the facilities of the place
-where you found this code.
+are my own. Please report issues at https://github.com/fade/parsector/issues.
 
--Brian O'Reilly, February 1, 2026.
+-Brian O'Reilly, February 2026.

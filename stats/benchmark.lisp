@@ -5,19 +5,19 @@
 
 (require :alexandria)
 (require :cl-json)
-(require :parsnip/examples)
+(require :parsector/examples/json)
 
-(defpackage #:xyz.shunter.parsnip.benchmark
-  (:use #:cl #:xyz.shunter.parsnip.examples.json)
+(defpackage #:parsector/stats/benchmark
+  (:use #:cl #:parsector/examples/json)
   (:export #:benchmark))
 
-(in-package #:xyz.shunter.parsnip.benchmark)
+(in-package #:parsector/stats/benchmark)
 
 
 
 (defparameter +large-json-path+
   (merge-pathnames #P"stats/large.json"
-                   (asdf:system-source-directory :parsnip)))
+                   (asdf:system-source-directory :parsector)))
 
 (defun benchmark-stream-decoder (decoder)
   "Measure the time a decoder reads a jarge json stream payload many times."
@@ -34,18 +34,18 @@
       (dotimes (n 100) (funcall decoder payload)))))
 
 (defun benchmark ()
-  (asdf:oos 'asdf:load-op :parsnip :force t)
-  (asdf:oos 'asdf:load-op :parsnip/examples :force t)
+  (asdf:oos 'asdf:load-op :parsector :force t)
+  (asdf:oos 'asdf:load-op :parsector/examples/json :force t)
 
   (format t "===READING FROM STREAM~%")
-  (format t "PARSNIP:~%")
+  (format t "PARSECTOR:~%")
   (benchmark-stream-decoder #'decode-json)
 
   (format t "~%~%~%CL-JSON:~%")
   (benchmark-stream-decoder #'cl-json:decode-json)
 
   (format t "~%~%~%===READING FROM STRING===~%")
-  (format t "PARSNIP:~%")
+  (format t "PARSECTOR:~%")
   (benchmark-string-decoder #'decode-json-from-string)
 
   (format t "~%~%~%Cl-JSON:~%")

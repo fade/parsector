@@ -1,12 +1,12 @@
-;;; test-json.lisp - Test suite for the Parsnip JSON example
+;;; test/json.lisp - Test suite for the Parsector JSON example
 
-(defpackage #:xyz.shunter.parsnip.test-json
+(defpackage #:parsector/test/json
   (:use #:cl
-        #:xyz.shunter.parsnip
-        #:xyz.shunter.parsnip.examples.json)
+        #:parsector
+        #:parsector/examples/json)
   (:local-nicknames (#:tt #:parachute)))
 
-(in-package #:xyz.shunter.parsnip.test-json)
+(in-package #:parsector/test/json)
 
 (tt:define-test json-literals
   (tt:is eq :true (decode-json-from-string "true"))
